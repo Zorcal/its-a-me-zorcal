@@ -1,4 +1,4 @@
-module github.com/zorcal/me
+module github.com/zorcal/its-a-me-zorcal
 
 go 1.24.6
 

@@ -6,7 +6,7 @@ import (
 	"log/slog"
 	"testing"
 
-	"github.com/zorcal/me/pkg/slogctx"
+	"github.com/zorcal/its-a-me-zorcal/pkg/slogctx"
 )
 
 func TestHandler(t *testing.T) {

@@ -1,1 +1,10 @@
-{{template "base" .}} {{define "content"}} Oops, something went wrong! {{end}}
+{{template "base" .}}
+{{define "content"}}
+<div class="error-page">
+  <h1>Error {{.StatusCode}}</h1>
+  <p>{{.ErrorMessage}}</p>
+  {{if .CorrelationID}}
+  <p>Correlation ID: {{.CorrelationID}}</p>
+  {{end}}
+</div>
+{{end}}

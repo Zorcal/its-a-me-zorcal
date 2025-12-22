@@ -3,6 +3,7 @@ package app
 import (
 	"cmp"
 	"context"
+	"errors"
 	"fmt"
 	"html/template"
 	"log/slog"
@@ -11,9 +12,9 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/zorcal/me/pkg/httprouter"
-	"github.com/zorcal/me/pkg/slogctx"
-	"github.com/zorcal/me/pkg/tracectx"
+	"github.com/zorcal/its-a-me-zorcal/pkg/httprouter"
+	"github.com/zorcal/its-a-me-zorcal/pkg/slogctx"
+	"github.com/zorcal/its-a-me-zorcal/pkg/tracectx"
 )
 
 func traceMiddleware() httprouter.Middleware {
@@ -111,7 +112,7 @@ func panicRecovery(log *slog.Logger) httprouter.Middleware {
 }
 
 func errorMiddleware(log *slog.Logger) httprouter.Middleware {
-	tmpl, err := template.ParseFS(templatesFS, "templates/base.html", "templates/error.html")
+	tmpl, err := template.ParseFS(templatesFS, "templates/base.html", "templates/error.html", "templates/command_output.html")
 	if err != nil {
 		log.ErrorContext(context.Background(), "Failed to parse template fs for error middleware", "error", err)
 		return func(next httprouter.Handler) httprouter.Handler {
@@ -132,17 +133,61 @@ func errorMiddleware(log *slog.Logger) httprouter.Middleware {
 				return nil
 			}
 
-			data := struct {
-				CorrelationID string
-			}{
-				CorrelationID: tracectx.Get(r.Context()),
+			ctx := r.Context()
+
+			statusCode := http.StatusInternalServerError
+			errMsg := http.StatusText(http.StatusInternalServerError)
+			if httpErr := new(httpError); errors.As(err, &httpErr) {
+				statusCode = httpErr.code
+				errMsg = httpErr.message
 			}
 
-			w.WriteHeader(http.StatusInternalServerError)
+			log.ErrorContext(ctx, "Request error", "error", err, "error_message", errMsg, "status_code", statusCode)
 
-			if templateErr := tmpl.ExecuteTemplate(w, "error.html", data); templateErr != nil {
-				log.ErrorContext(r.Context(), "Failed to render error template", "error", templateErr)
-				w.Write([]byte(http.StatusText(http.StatusInternalServerError)))
+			w.WriteHeader(statusCode)
+
+			if !isHTMXRequest(r) {
+				data := struct {
+					CorrelationID string
+					StatusCode    int
+					ErrorMessage  string
+				}{
+					CorrelationID: tracectx.Get(ctx),
+					StatusCode:    statusCode,
+					ErrorMessage:  errMsg,
+				}
+
+				if tmplErr := tmpl.ExecuteTemplate(w, "error.html", data); tmplErr != nil {
+					log.ErrorContext(ctx, "Failed to render error template", "error", tmplErr)
+					w.Write([]byte(http.StatusText(statusCode)))
+				}
+
+				return nil
+			}
+
+			var corrIDHTML string
+			if corrID := tracectx.Get(ctx); corrID != "" {
+				corrIDHTML = fmt.Sprintf(`<div class="error-correlation">Correlation ID: %s</div>`, corrID)
+			}
+
+			data := struct {
+				Command string
+				Output  template.HTML
+				Error   bool
+			}{
+				Command: getCommand(r),
+				Output: template.HTML(fmt.Sprintf(
+					`<div class="error-details">Something went wrong while processing your input.</div><div class="error-code">Error %d: %s</div>%s`,
+					statusCode,
+					errMsg,
+					corrIDHTML,
+				)),
+				Error: true,
+			}
+
+			if tmplErr := tmpl.ExecuteTemplate(w, "command_output.html", data); tmplErr != nil {
+				log.ErrorContext(ctx, "Failed to render HTMX error template", "error", tmplErr)
+				w.Write([]byte(http.StatusText(statusCode)))
 			}
 
 			return nil
@@ -157,4 +202,29 @@ func htmlContentTypeMiddleware() httprouter.Middleware {
 			return next(w, r)
 		}
 	}
+}
+
+func htmxMiddleware() httprouter.Middleware {
+	return func(next httprouter.Handler) httprouter.Handler {
+		return func(w http.ResponseWriter, r *http.Request) error {
+			if !isHTMXRequest(r) {
+				return newHTTPError(http.StatusBadRequest, "This endpoint requires HTMX")
+			}
+			return next(w, r)
+		}
+	}
+}
+
+func isHTMXRequest(r *http.Request) bool {
+	return r.Header.Get("HX-Request") == "true"
+}
+
+func getCommand(r *http.Request) string {
+	if r.Method != http.MethodPost {
+		return ""
+	}
+	if err := r.ParseForm(); err != nil {
+		return ""
+	}
+	return r.FormValue("command")
 }

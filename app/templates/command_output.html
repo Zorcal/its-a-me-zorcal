@@ -1,0 +1,5 @@
+<div class="command-prompt{{if .Error}} error{{end}}">
+  {{- "" -}}guest@zorcal:~$ {{.Command}}{{- "" -}}
+</div>
+{{- "" -}}
+<div class="command-output{{if .Error}} error{{end}}">{{.Output}}</div>

@@ -12,4 +12,8 @@ RUN go build -v -ldflags="-X 'main.appVersion=${BUILD_VERSION}'" -o /run-app ./c
 FROM debian:bookworm
 
 COPY --from=builder /run-app /usr/local/bin/
+
+# Enable static file caching in production
+ENV ME_WEB_DISABLE_STATIC_CACHE=false
+
 CMD ["run-app"]

@@ -1,4 +1,40 @@
 {{template "base" .}} {{define "head"}}
-<link href="/static/index.css" rel="stylesheet" />
-<link href="/static/index.js" rel="stylesheet" />
-{{end}} {{define "content"}} Welcome! {{end}}
+{{end}} {{define "content"}}
+<div id="screen-size-warning">
+  <div class="warning-content">
+    <h2>Screen Resolution Not Supported</h2>
+    <p>This terminal interface requires a larger screen.</p>
+    <p>Please use a desktop or tablet device.</p>
+  </div>
+</div>
+<div id="terminal">
+  {{.WelcomeBanner}}
+  <div id="command-history">
+    <div id="command-output"></div>
+    <form
+      id="command-form"
+      action="/command"
+      method="post"
+      hx-post="/command"
+      hx-target="#command-output"
+      hx-swap="beforeend"
+      hx-on::after-request="handleCommandSubmit()"
+      hx-on::response-error="handleCommandError(event)"
+    >
+      <div id="input-line">
+        <span id="prompt">guest@zorcal:~$ </span>
+        <span id="input-text"></span>
+        <span id="cursor">█</span>
+        <input
+          type="text"
+          id="command-input"
+          name="command"
+          autocomplete="off"
+          autofocus
+        />
+      </div>
+    </form>
+  </div>
+</div>
+<script src="/static/index.js"></script>
+{{end}}

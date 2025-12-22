@@ -9,13 +9,18 @@ import (
 	"strings"
 	"time"
 
-	"github.com/zorcal/me/pkg/httprouter"
+	"github.com/zorcal/its-a-me-zorcal/pkg/httprouter"
 )
 
-func staticHandler(static fs.FS, appVersion string) httprouter.Handler {
+func staticHandler(static fs.FS, appVersion string, disableCache bool) httprouter.Handler {
 	staticHandler := http.StripPrefix("/static/", http.FileServer(http.FS(static)))
 
 	return httprouter.HandlerFromStd(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if disableCache {
+			staticHandler.ServeHTTP(w, r)
+			return
+		}
+
 		filePath := strings.TrimPrefix(r.URL.Path, "/static/")
 		maxAge := calcStaticFileMaxAge(filePath)
 

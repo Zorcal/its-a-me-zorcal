@@ -7,7 +7,7 @@ import (
 	"log/slog"
 	"net/http"
 
-	"github.com/zorcal/me/pkg/httprouter"
+	"github.com/zorcal/its-a-me-zorcal/pkg/httprouter"
 )
 
 //go:embed templates/*.html
@@ -16,7 +16,7 @@ var templatesFS embed.FS
 //go:embed all:static
 var staticFS embed.FS
 
-func NewHandler(log *slog.Logger, appVersion string) (http.Handler, error) {
+func NewHandler(log *slog.Logger, appVersion string, disableStaticCache bool) (http.Handler, error) {
 	static, err := fs.Sub(staticFS, "static")
 	if err != nil {
 		return nil, fmt.Errorf("create sub-filesystem for static files: %w", err)
@@ -30,8 +30,9 @@ func NewHandler(log *slog.Logger, appVersion string) (http.Handler, error) {
 	)
 
 	r.SetNotFoundHandler(notFoundHandler(), htmlContentTypeMiddleware())
-	r.Handle("/static/", staticHandler(static, appVersion))
-	r.Handle("/{$}", indexHandler(), htmlContentTypeMiddleware())
+	r.Handle("/static/", staticHandler(static, appVersion, disableStaticCache))
+	r.Handle("POST /command", commandHandler(), htmxMiddleware(), htmlContentTypeMiddleware())
+	r.Handle("GET /{$}", indexHandler(log), htmlContentTypeMiddleware())
 
 	return r, nil
 }

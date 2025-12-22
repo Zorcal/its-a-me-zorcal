@@ -12,8 +12,8 @@ import (
 	"time"
 
 	"github.com/ardanlabs/conf/v3"
-	"github.com/zorcal/me/app"
-	"github.com/zorcal/me/pkg/slogctx"
+	"github.com/zorcal/its-a-me-zorcal/app"
+	"github.com/zorcal/its-a-me-zorcal/pkg/slogctx"
 )
 
 // appVersion should be set at build time using -ldflags
@@ -22,11 +22,12 @@ var appVersion = "dev"
 type Config struct {
 	conf.Version
 	Web struct {
-		ReadTimeout     time.Duration `conf:"default:5s"`
-		WriteTimeout    time.Duration `conf:"default:10s"`
-		IdleTimeout     time.Duration `conf:"default:120s"`
-		ShutdownTimeout time.Duration `conf:"default:20s"`
-		Addr            string        `conf:"default:127.0.0.1:5042"`
+		ReadTimeout        time.Duration `conf:"default:5s"`
+		WriteTimeout       time.Duration `conf:"default:10s"`
+		IdleTimeout        time.Duration `conf:"default:120s"`
+		ShutdownTimeout    time.Duration `conf:"default:20s"`
+		Addr               string        `conf:"default:127.0.0.1:5042"`
+		DisableStaticCache bool          `conf:"default:true"`
 	}
 }
 
@@ -64,7 +65,7 @@ func run(ctx context.Context, cfg Config, log *slog.Logger) (retErr error) {
 
 	log.InfoContext(ctx, "Starting...", "config", strCfg)
 
-	appHandler, err := app.NewHandler(log, appVersion)
+	appHandler, err := app.NewHandler(log, appVersion, cfg.Web.DisableStaticCache)
 	if err != nil {
 		return fmt.Errorf("create app handler: %w", err)
 	}

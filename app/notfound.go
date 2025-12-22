@@ -4,7 +4,7 @@ import (
 	"html/template"
 	"net/http"
 
-	"github.com/zorcal/me/pkg/httprouter"
+	"github.com/zorcal/its-a-me-zorcal/pkg/httprouter"
 )
 
 func notFoundHandler() httprouter.Handler {
