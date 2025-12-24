@@ -7,9 +7,10 @@ import (
 	"strings"
 
 	"github.com/zorcal/its-a-me-zorcal/pkg/httprouter"
+	"github.com/zorcal/its-a-me-zorcal/pkg/session"
 )
 
-func commandHandler() httprouter.Handler {
+func commandHandler(sessionMgr *session.Manager[terminalSessionEntry]) httprouter.Handler {
 	tmpl, err := template.ParseFS(templatesFS, "templates/command_output.html")
 	if err != nil {
 		return func(w http.ResponseWriter, r *http.Request) error {
@@ -22,6 +23,9 @@ func commandHandler() httprouter.Handler {
 			return wrapHTTPError(http.StatusBadRequest, "Bad form data", err)
 		}
 
+		sessionID := getSessionID(r)
+		sess := sessionMgr.GetOrCreateSession(sessionID)
+
 		command := strings.TrimSpace(r.FormValue("command"))
 
 		var output string
@@ -31,7 +35,7 @@ func commandHandler() httprouter.Handler {
 		case "ls":
 			output = "README.md  src/  docs/  package.json"
 		case "clear":
-			// Clear command resets the terminal - set swap to replace command output
+			sess.ClearHistory()
 			w.Header().Set("HX-Retarget", "#command-output")
 			w.Header().Set("HX-Reswap", "innerHTML")
 			w.Write([]byte(""))
@@ -41,6 +45,9 @@ func commandHandler() httprouter.Handler {
 		default:
 			output = fmt.Sprintf("shell: %s: command not found...", command)
 		}
+
+		entry := newTerminalSessionEntry(command, template.HTML(output), false)
+		sess.AddEntry(entry)
 
 		data := struct {
 			Command string

@@ -10,7 +10,14 @@
 <div id="terminal">
   {{.WelcomeBanner}}
   <div id="command-history">
-    <div id="command-output"></div>
+    <div id="command-output">
+      {{range .History}}
+      <div class="command-prompt{{if .Error}} error{{end}}">
+        guest@zorcal:~$ {{.Command}}
+      </div>
+      <div class="command-output{{if .Error}} error{{end}}">{{.Output}}</div>
+      {{end}}
+    </div>
     <form
       id="command-form"
       action="/command"

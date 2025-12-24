@@ -17,6 +17,9 @@ var templatesFS embed.FS
 var staticFS embed.FS
 
 func NewHandler(log *slog.Logger, appVersion string, disableStaticCache bool) (http.Handler, error) {
+	sessionMgr := newSessionManager()
+	startSessionCleanupTicker(sessionMgr)
+
 	static, err := fs.Sub(staticFS, "static")
 	if err != nil {
 		return nil, fmt.Errorf("create sub-filesystem for static files: %w", err)
@@ -24,15 +27,15 @@ func NewHandler(log *slog.Logger, appVersion string, disableStaticCache bool) (h
 
 	r := httprouter.New(
 		traceMiddleware(),
-		errorMiddleware(log),
+		errorMiddleware(log, sessionMgr),
 		loggingMiddleware(log),
 		panicRecovery(log),
 	)
 
 	r.SetNotFoundHandler(notFoundHandler(), htmlContentTypeMiddleware())
 	r.Handle("/static/", staticHandler(static, appVersion, disableStaticCache))
-	r.Handle("POST /command", commandHandler(), htmxMiddleware(), htmlContentTypeMiddleware())
-	r.Handle("GET /{$}", indexHandler(log), htmlContentTypeMiddleware())
+	r.Handle("POST /command", commandHandler(sessionMgr), htmxMiddleware(), htmlContentTypeMiddleware())
+	r.Handle("GET /{$}", indexHandler(log, sessionMgr), htmlContentTypeMiddleware())
 
 	return r, nil
 }

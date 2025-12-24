@@ -13,6 +13,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/zorcal/its-a-me-zorcal/pkg/httprouter"
+	"github.com/zorcal/its-a-me-zorcal/pkg/session"
 	"github.com/zorcal/its-a-me-zorcal/pkg/slogctx"
 	"github.com/zorcal/its-a-me-zorcal/pkg/tracectx"
 )
@@ -111,7 +112,7 @@ func panicRecovery(log *slog.Logger) httprouter.Middleware {
 	}
 }
 
-func errorMiddleware(log *slog.Logger) httprouter.Middleware {
+func errorMiddleware(log *slog.Logger, sessionMgr *session.Manager[terminalSessionEntry]) httprouter.Middleware {
 	tmpl, err := template.ParseFS(templatesFS, "templates/base.html", "templates/error.html", "templates/command_output.html")
 	if err != nil {
 		log.ErrorContext(context.Background(), "Failed to parse template fs for error middleware", "error", err)
@@ -170,19 +171,27 @@ func errorMiddleware(log *slog.Logger) httprouter.Middleware {
 				corrIDHTML = fmt.Sprintf(`<div class="error-correlation">Correlation ID: %s</div>`, corrID)
 			}
 
+			command := getCommand(r)
+			output := template.HTML(fmt.Sprintf(
+				`<div class="error-details">Something went wrong while processing your input.</div><div class="error-code">Error %d: %s</div>%s`,
+				statusCode,
+				errMsg,
+				corrIDHTML,
+			))
+
+			sessionID := getSessionID(r)
+			sess := sessionMgr.GetOrCreateSession(sessionID)
+			entry := newTerminalSessionEntry(command, output, true)
+			sess.AddEntry(entry)
+
 			data := struct {
 				Command string
 				Output  template.HTML
 				Error   bool
 			}{
-				Command: getCommand(r),
-				Output: template.HTML(fmt.Sprintf(
-					`<div class="error-details">Something went wrong while processing your input.</div><div class="error-code">Error %d: %s</div>%s`,
-					statusCode,
-					errMsg,
-					corrIDHTML,
-				)),
-				Error: true,
+				Command: command,
+				Output:  output,
+				Error:   true,
 			}
 
 			if tmplErr := tmpl.ExecuteTemplate(w, "command_output.html", data); tmplErr != nil {
