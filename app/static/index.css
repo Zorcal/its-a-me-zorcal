@@ -234,9 +234,8 @@ body::before {
   text-shadow: 0 0 15px #00ff00;
 }
 
-/* Screen size warning - hidden by default */
+/* Screen size warning */
 #screen-size-warning {
-  display: none;
   position: fixed;
   top: 0;
   left: 0;
@@ -244,6 +243,7 @@ body::before {
   height: 100vh;
   background: #000;
   color: #00ff00;
+  display: flex;
   justify-content: center;
   align-items: center;
   z-index: 1000;
@@ -271,22 +271,6 @@ body::before {
   margin: 8px 0;
   text-shadow: 0 0 5px #00ff00;
   font-size: 13px;
-}
-
-/* Mobile and small screen handling */
-@media (max-width: 768px), (max-height: 600px) {
-  #screen-size-warning {
-    display: flex;
-  }
-  
-  #terminal {
-    display: none;
-  }
-}
-  
-  #terminal::after {
-    font-size: 10px;
-  }
 }
 
 /* Additional matrix effects */

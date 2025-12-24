@@ -1,4 +1,8 @@
 document.addEventListener("DOMContentLoaded", () => {
+	// Check screen size and show warning if needed
+	checkScreenSize();
+	window.addEventListener('resize', checkScreenSize);
+
 	const cursor = document.getElementById("cursor");
 	const input = document.getElementById("command-input");
 	const inputText = document.getElementById("input-text");
@@ -48,3 +52,23 @@ document.addEventListener("DOMContentLoaded", () => {
 		document.getElementById('command-history').scrollTop = document.getElementById('command-history').scrollHeight;
 	};
 });
+
+function checkScreenSize() {
+	const isSmallScreen = window.innerWidth <= 768 || window.innerHeight <= 600;
+	let warning = document.getElementById('screen-size-warning');
+	
+	if (isSmallScreen && !warning) {
+		warning = document.createElement('div');
+		warning.id = 'screen-size-warning';
+		warning.innerHTML = `
+			<div class="warning-content">
+				<h2>Screen Resolution Not Supported</h2>
+				<p>This terminal interface requires a larger screen.</p>
+				<p>Please use a desktop or tablet device.</p>
+			</div>
+		`;
+		document.body.appendChild(warning);
+	} else if (!isSmallScreen && warning) {
+		warning.remove();
+	}
+}
