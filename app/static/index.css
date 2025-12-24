@@ -287,6 +287,7 @@ body::before {
 .help {
   color: #66ff66;
   line-height: 1.6;
+  white-space: pre;
 }
 
 /* Terminal link styling */

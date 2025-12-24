@@ -32,16 +32,35 @@ func commandHandler(sessionMgr *session.Manager[terminalSessionEntry]) httproute
 		switch command {
 		case "":
 			// Empty command shows just the prompt
+		case "cd":
+			return newHTTPError(http.StatusBadRequest, "Not implemented yet.")
 		case "ls":
-			output = "README.md  src/  docs/  package.json"
+			return newHTTPError(http.StatusBadRequest, "Not implemented yet.")
+		case "pwd":
+			return newHTTPError(http.StatusBadRequest, "Not implemented yet.")
+		case "open":
+			return newHTTPError(http.StatusBadRequest, "Not implemented yet.")
+		case "cat":
+			return newHTTPError(http.StatusBadRequest, "Not implemented yet.")
 		case "clear":
-			sess.ClearHistory()
-			w.Header().Set("HX-Retarget", "#command-output")
-			w.Header().Set("HX-Reswap", "innerHTML")
-			w.Write([]byte(""))
+			runClearCommand(w, sess)
 			return nil
-		case "test_error":
-			return newHTTPError(http.StatusBadRequest, "some error")
+		case "help":
+			output = `<div class="help">Available commands:
+
+  <strong>ls</strong>        - List directory contents
+                   "d" = directory, "o" = openable file, "c" = catable file
+  <strong>cd</strong>        - Change directory
+  <strong>pwd</strong>       - Print working directory
+  <strong>cat</strong>       - Display file contents
+  <strong>open</strong>      - Open files (projects, links)
+  <strong>clear</strong>     - Clear terminal history (or use Ctrl+L)
+  <strong>help</strong>      - Show this help message
+
+Navigation:
+  • Use Ctrl+L to clear the terminal
+
+</div>`
 		default:
 			output = fmt.Sprintf("shell: %s: command not found...", command)
 		}
@@ -51,11 +70,11 @@ func commandHandler(sessionMgr *session.Manager[terminalSessionEntry]) httproute
 
 		data := struct {
 			Command string
-			Output  string
+			Output  template.HTML
 			Error   bool
 		}{
 			Command: command,
-			Output:  output,
+			Output:  template.HTML(output),
 			Error:   false,
 		}
 
@@ -65,4 +84,11 @@ func commandHandler(sessionMgr *session.Manager[terminalSessionEntry]) httproute
 
 		return nil
 	}
+}
+
+func runClearCommand(w http.ResponseWriter, sess *session.Session[terminalSessionEntry]) {
+	sess.ClearHistory()
+	w.Header().Set("HX-Retarget", "#command-output")
+	w.Header().Set("HX-Reswap", "innerHTML")
+	w.Write([]byte(""))
 }
