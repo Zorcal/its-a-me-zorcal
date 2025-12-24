@@ -1,16 +1,27 @@
 package app
 
 import (
+	"errors"
 	"fmt"
 	"html/template"
 	"net/http"
 	"strings"
 
+	"github.com/zorcal/its-a-me-zorcal/core/termfs"
+	"github.com/zorcal/its-a-me-zorcal/core/termui"
 	"github.com/zorcal/its-a-me-zorcal/pkg/httprouter"
 	"github.com/zorcal/its-a-me-zorcal/pkg/session"
 )
 
-func commandHandler(sessionMgr *session.Manager[terminalSessionEntry]) httprouter.Handler {
+type cmdTmplData struct {
+	Command    string
+	Output     template.HTML
+	Error      bool
+	Prompt     string
+	NextPrompt string
+}
+
+func commandHandler(sessMgr *session.Manager[terminalSessionEntry], tfs *termfs.FS) httprouter.Handler {
 	tmpl, err := template.ParseFS(templatesFS, "templates/command_output.html")
 	if err != nil {
 		return func(w http.ResponseWriter, r *http.Request) error {
@@ -18,72 +29,69 @@ func commandHandler(sessionMgr *session.Manager[terminalSessionEntry]) httproute
 		}
 	}
 
+	sessAdapter := newSessionAdapter(sessMgr)
+
 	return func(w http.ResponseWriter, r *http.Request) error {
 		if err := r.ParseForm(); err != nil {
 			return wrapHTTPError(http.StatusBadRequest, "Bad form data", err)
 		}
 
 		sessionID := getSessionID(r)
-		sess := sessionMgr.GetOrCreateSession(sessionID)
+		sess := sessMgr.GetOrCreateSession(sessionID)
 
-		command := strings.TrimSpace(r.FormValue("command"))
+		cmdLine := strings.TrimSpace(r.FormValue("command"))
 
-		var output string
-		switch command {
+		// Capture current directory and prompt before executing any command.
+		currDir := sessAdapter.GetCurrentDir(sessionID)
+		currPrompt := termui.GeneratePrompt(currDir)
+
+		parts := strings.Fields(cmdLine)
+		var cmd string
+		var args []string
+
+		if len(parts) > 0 {
+			cmd = parts[0]
+			args = parts[1:]
+		}
+
+		switch cmd {
 		case "":
-			// Empty command shows just the prompt
-		case "cd":
-			return newHTTPError(http.StatusBadRequest, "Not implemented yet.")
-		case "ls":
-			return newHTTPError(http.StatusBadRequest, "Not implemented yet.")
-		case "pwd":
-			return newHTTPError(http.StatusBadRequest, "Not implemented yet.")
-		case "open":
-			return newHTTPError(http.StatusBadRequest, "Not implemented yet.")
-		case "cat":
-			return newHTTPError(http.StatusBadRequest, "Not implemented yet.")
+			return runEmptyCommand(w, sess, tmpl, currPrompt)
 		case "clear":
 			runClearCommand(w, sess)
 			return nil
 		case "help":
-			output = `<div class="help">Available commands:
-
-  <strong>ls</strong>        - List directory contents
-                   "d" = directory, "o" = openable file, "c" = catable file
-  <strong>cd</strong>        - Change directory
-  <strong>pwd</strong>       - Print working directory
-  <strong>cat</strong>       - Display file contents
-  <strong>open</strong>      - Open files (projects, links)
-  <strong>clear</strong>     - Clear terminal history (or use Ctrl+L)
-  <strong>help</strong>      - Show this help message
-
-Navigation:
-  • Use Ctrl+L to clear the terminal
-
-</div>`
+			return runHelpCommand(w, sess, tmpl, cmdLine, currPrompt)
+		case "open":
+			return runOpenCommand(w, sess, tmpl, tfs, sessAdapter, sessionID, cmdLine, args, currPrompt)
+		case "cd":
+			return runCdCommand(w, sess, tmpl, tfs, sessAdapter, sessionID, cmdLine, args, currPrompt)
+		case "ls":
+			return runLsCommand(w, sess, tmpl, tfs, sessAdapter, sessionID, cmdLine, args, currPrompt)
+		case "pwd":
+			return runPwdCommand(w, sess, tmpl, sessAdapter, sessionID, currPrompt)
+		case "cat":
+			return runCatCommand(w, sess, tmpl, tfs, sessAdapter, sessionID, cmdLine, args, currPrompt)
 		default:
-			output = fmt.Sprintf("shell: %s: command not found...", command)
+			return runUnknownCommand(w, sess, tmpl, cmd, currPrompt)
 		}
-
-		entry := newTerminalSessionEntry(command, template.HTML(output), false)
-		sess.AddEntry(entry)
-
-		data := struct {
-			Command string
-			Output  template.HTML
-			Error   bool
-		}{
-			Command: command,
-			Output:  template.HTML(output),
-			Error:   false,
-		}
-
-		if err := tmpl.Execute(w, data); err != nil {
-			return fmt.Errorf("exec template: %w", err)
-		}
-
-		return nil
 	}
+}
+
+func runEmptyCommand(w http.ResponseWriter, sess *session.Session[terminalSessionEntry], tmpl *template.Template, currPrompt string) error {
+	entry := newTerminalSessionEntry("", "", false)
+	entry.Prompt = currPrompt
+	sess.AddEntry(entry)
+
+	data := cmdTmplData{
+		Command:    "",
+		Output:     "",
+		Error:      false,
+		Prompt:     currPrompt,
+		NextPrompt: currPrompt,
+	}
+
+	return tmpl.Execute(w, data)
 }
 
 func runClearCommand(w http.ResponseWriter, sess *session.Session[terminalSessionEntry]) {
@@ -91,4 +99,245 @@ func runClearCommand(w http.ResponseWriter, sess *session.Session[terminalSessio
 	w.Header().Set("HX-Retarget", "#command-output")
 	w.Header().Set("HX-Reswap", "innerHTML")
 	w.Write([]byte(""))
+}
+
+func runHelpCommand(w http.ResponseWriter, sess *session.Session[terminalSessionEntry], tmpl *template.Template, cmdLine string, currPrompt string) error {
+	output := `<div class="help">Available commands:
+
+  <strong>ls [options] [path]</strong> - List directory contents
+                        -a, --all: show hidden files (starting with .)
+                        -l, --long: long format (d/c/o):
+                            d-- = directory
+                            -c- = catable
+                            --o = openable
+  <strong>cd [path]</strong>     - Change directory
+  <strong>pwd</strong>           - Print working directory
+  <strong>cat [file]</strong>    - Display file contents
+  <strong>open [file]</strong>   - Open files containing URLs in browser
+  <strong>clear</strong>         - Clear terminal history (or use Ctrl+L)
+  <strong>help</strong>          - Show this help message
+
+Notes:
+  • Use Ctrl+L to clear the terminal
+
+</div>`
+
+	entry := newTerminalSessionEntry(cmdLine, template.HTML(output), false)
+	entry.Prompt = currPrompt
+	sess.AddEntry(entry)
+
+	data := cmdTmplData{
+		Command:    cmdLine,
+		Output:     template.HTML(output),
+		Error:      false,
+		Prompt:     currPrompt,
+		NextPrompt: currPrompt,
+	}
+
+	return tmpl.Execute(w, data)
+}
+
+func runOpenCommand(w http.ResponseWriter, sess *session.Session[terminalSessionEntry], tmpl *template.Template, tfs *termfs.FS, sessAdapter *sessionAdapter, sessionID, cmdLine string, args []string, currPrompt string) error {
+	var (
+		output  string
+		isError bool
+	)
+
+	result, err := termui.OpenFile(tfs, sessAdapter, sessionID, args)
+	if err != nil {
+		isError = true
+		switch {
+		case errors.Is(err, termui.ErrMissingArgument):
+			output = "open: missing file argument"
+		case errors.Is(err, termui.ErrNotOpenable):
+			output = "open: file is not openable"
+		case errors.Is(err, termui.ErrFileNotFound):
+			output = fmt.Sprintf("open: %s: No such file", result)
+		case errors.Is(err, termui.ErrIsDirectory):
+			output = fmt.Sprintf("open: %s: Is a directory", result)
+		default:
+			output = "open: internal error"
+		}
+	} else {
+		w.Header().Set("X-Open-URL", result)
+		output = fmt.Sprintf("Opening %s in browser...", args[0])
+		isError = false
+	}
+
+	entry := newTerminalSessionEntry(cmdLine, template.HTML(output), isError)
+	entry.Prompt = currPrompt
+	sess.AddEntry(entry)
+
+	data := cmdTmplData{
+		Command:    cmdLine,
+		Output:     template.HTML(output),
+		Error:      isError,
+		Prompt:     currPrompt,
+		NextPrompt: currPrompt,
+	}
+
+	return tmpl.Execute(w, data)
+}
+
+func runCdCommand(w http.ResponseWriter, sess *session.Session[terminalSessionEntry], tmpl *template.Template, tfs *termfs.FS, sessAdapter *sessionAdapter, sessionID, cmdLine string, args []string, currPrompt string) error {
+	var (
+		output  string
+		isError bool
+	)
+
+	target, err := termui.ChangeDirectory(tfs, sessAdapter, sessionID, args)
+	if err != nil {
+		isError = true
+		switch err {
+		case termui.ErrFileNotFound:
+			output = fmt.Sprintf("cd: %s: No such file or directory", target)
+		case termui.ErrNotDirectory:
+			output = fmt.Sprintf("cd: %s: Not a directory", target)
+		case termui.ErrAccessDenied:
+			output = fmt.Sprintf("cd: %s: Permission denied", target)
+		default:
+			output = fmt.Sprintf("cd: %s: internal error", target)
+		}
+	}
+
+	entry := newTerminalSessionEntry(cmdLine, template.HTML(output), isError)
+	entry.Prompt = currPrompt
+	sess.AddEntry(entry)
+
+	data := cmdTmplData{
+		Command:    cmdLine,
+		Output:     template.HTML(output),
+		Error:      isError,
+		Prompt:     currPrompt,
+		NextPrompt: termui.GeneratePrompt(sessAdapter.GetCurrentDir(sessionID)),
+	}
+
+	return tmpl.Execute(w, data)
+}
+
+func runLsCommand(w http.ResponseWriter, sess *session.Session[terminalSessionEntry], tmpl *template.Template, tfs *termfs.FS, sessAdapter *sessionAdapter, sessionID, cmdLine string, args []string, currPrompt string) error {
+	var (
+		output  string
+		isError bool
+	)
+
+	result, err := termui.ListDirectoryContents(tfs, sessAdapter, sessionID, args)
+	if err != nil {
+		isError = true
+		switch {
+		case errors.Is(err, termui.ErrFileNotFound):
+			output = fmt.Sprintf("ls: %s: No such file or directory", result)
+		case errors.Is(err, termui.ErrTooManyArguments):
+			output = "ls: too many arguments"
+		case errors.Is(err, termui.ErrAccessDenied):
+			output = "ls: Permission denied"
+		case errors.Is(err, termui.ErrInvalidFlag):
+			output = "ls: invalid flag or option"
+		default:
+			output = "ls: internal error"
+		}
+	} else {
+		output = fmt.Sprintf("<pre class=\"file-list\">%s</pre>", result)
+	}
+
+	entry := newTerminalSessionEntry(cmdLine, template.HTML(output), isError)
+	entry.Prompt = currPrompt
+	sess.AddEntry(entry)
+
+	data := cmdTmplData{
+		Command:    cmdLine,
+		Output:     template.HTML(output),
+		Error:      isError,
+		Prompt:     currPrompt,
+		NextPrompt: currPrompt,
+	}
+
+	return tmpl.Execute(w, data)
+}
+
+func runPwdCommand(w http.ResponseWriter, sess *session.Session[terminalSessionEntry], tmpl *template.Template, sessAdapter *sessionAdapter, sessionID, currPrompt string) error {
+	var (
+		output  string
+		isError bool
+	)
+
+	result, err := termui.PrintWorkingDirectory(sessAdapter, sessionID)
+	if err != nil {
+		isError = true
+		output = "pwd: internal error"
+	} else {
+		output = result
+	}
+
+	entry := newTerminalSessionEntry("pwd", template.HTML(output), isError)
+	entry.Prompt = currPrompt
+	sess.AddEntry(entry)
+
+	data := cmdTmplData{
+		Command:    "pwd",
+		Output:     template.HTML(output),
+		Error:      isError,
+		Prompt:     currPrompt,
+		NextPrompt: currPrompt,
+	}
+
+	return tmpl.Execute(w, data)
+}
+
+func runCatCommand(w http.ResponseWriter, sess *session.Session[terminalSessionEntry], tmpl *template.Template, tfs *termfs.FS, sessAdapter *sessionAdapter, sessionID, cmdLine string, args []string, currPrompt string) error {
+	var (
+		output  string
+		isError bool
+	)
+
+	result, err := termui.CatFile(tfs, sessAdapter, sessionID, args)
+	if err != nil {
+		isError = true
+		switch err {
+		case termui.ErrMissingArgument:
+			output = "cat: missing file argument"
+		case termui.ErrFileNotFound:
+			output = fmt.Sprintf("cat: %s: No such file or directory", result)
+		case termui.ErrIsDirectory:
+			output = fmt.Sprintf("cat: %s: Is a directory", result)
+		case termui.ErrAccessDenied:
+			output = fmt.Sprintf("cat: %s: Permission denied", result)
+		default:
+			output = "cat: internal error"
+		}
+	} else {
+		output = fmt.Sprintf("<pre class=\"file-content\">%s</pre>", result)
+	}
+
+	entry := newTerminalSessionEntry(cmdLine, template.HTML(output), isError)
+	entry.Prompt = currPrompt
+	sess.AddEntry(entry)
+
+	data := cmdTmplData{
+		Command:    cmdLine,
+		Output:     template.HTML(output),
+		Error:      isError,
+		Prompt:     currPrompt,
+		NextPrompt: currPrompt,
+	}
+
+	return tmpl.Execute(w, data)
+}
+
+func runUnknownCommand(w http.ResponseWriter, sess *session.Session[terminalSessionEntry], tmpl *template.Template, cmd, currPrompt string) error {
+	output := fmt.Sprintf("shell: %s: command not found...", cmd)
+
+	entry := newTerminalSessionEntry(cmd, template.HTML(output), true)
+	entry.Prompt = currPrompt
+	sess.AddEntry(entry)
+
+	data := cmdTmplData{
+		Command:    cmd,
+		Output:     template.HTML(output),
+		Error:      true,
+		Prompt:     currPrompt,
+		NextPrompt: currPrompt,
+	}
+
+	return tmpl.Execute(w, data)
 }

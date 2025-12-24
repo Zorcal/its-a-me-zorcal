@@ -1,5 +1,10 @@
 <div class="command-prompt{{if .Error}} error{{end}}">
-  {{- "" -}}guest@zorcal:~$ {{.Command}}{{- "" -}}
+  {{- "" -}}{{.Prompt}}{{.Command}}{{- "" -}}
 </div>
 {{- "" -}}
 <div class="command-output{{if .Error}} error{{end}}">{{.Output}}</div>
+<div
+  hx-trigger="load"
+  hx-swap="none"
+  hx-on::load="document.getElementById('prompt').textContent = '{{.NextPrompt}}'"
+></div>

@@ -6,7 +6,7 @@
     <div id="command-output">
       {{range .History}}
       <div class="command-prompt{{if .Error}} error{{end}}">
-        guest@zorcal:~$ {{.Command}}
+        {{.Prompt}}{{.Command}}
       </div>
       <div class="command-output{{if .Error}} error{{end}}">{{.Output}}</div>
       {{end}}
@@ -22,7 +22,7 @@
       hx-on::response-error="handleCommandError(event)"
     >
       <div id="input-line">
-        <span id="prompt">guest@zorcal:~$ </span>
+        <span id="prompt">{{.CurrentPrompt}}</span>
         <span id="input-text"></span>
         <span id="cursor">█</span>
         <input

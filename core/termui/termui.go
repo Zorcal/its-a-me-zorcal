@@ -1,0 +1,408 @@
+package termui
+
+import (
+	"errors"
+	"fmt"
+	"io"
+	"io/fs"
+	"strings"
+
+	"github.com/zorcal/its-a-me-zorcal/core/termfs"
+	"github.com/zorcal/its-a-me-zorcal/pkg/posixflag"
+)
+
+// Terminal command errors.
+var (
+	ErrFileNotFound     = errors.New("file not found")
+	ErrNotDirectory     = errors.New("not a directory")
+	ErrIsDirectory      = errors.New("is a directory")
+	ErrMissingArgument  = errors.New("missing argument")
+	ErrTooManyArguments = errors.New("too many arguments")
+	ErrAccessDenied     = errors.New("access denied")
+	ErrInvalidFlag      = errors.New("invalid flag")
+	ErrNotOpenable      = errors.New("not openable")
+)
+
+// SessionManager defines the interface for managing terminal sessions.
+type SessionManager interface {
+	GetCurrentDir(sessionID string) string
+	SetCurrentDir(sessionID string, dir string)
+}
+
+// ChangeDirectory changes the current working directory for a session.
+// Returns the target path and error. On success, returns ("", nil).
+// On error, returns (targetPath, error) where targetPath is the path the user
+// attempted to access, allowing the caller to format contextual error messages.
+// Possible errors: ErrFileNotFound, ErrNotDirectory, ErrAccessDenied.
+func ChangeDirectory(tfs *termfs.FS, sessMgr SessionManager, sessionID string, args []string) (string, error) {
+	var targetPath string
+	if len(args) == 0 {
+		// No arguments goes to home
+		targetPath = "~"
+	} else {
+		targetPath = args[0]
+	}
+
+	currDir := sessMgr.GetCurrentDir(sessionID)
+	newDir := resolvePath(currDir, targetPath)
+
+	openPath := newDir
+	if openPath == "" {
+		openPath = "."
+	}
+
+	f, err := tfs.Open(openPath)
+	if err != nil {
+		return targetPath, ErrFileNotFound
+	}
+	defer f.Close()
+
+	info, err := f.Stat()
+	if err != nil {
+		return targetPath, ErrAccessDenied
+	}
+
+	if !info.IsDir() {
+		return targetPath, ErrNotDirectory
+	}
+
+	sessMgr.SetCurrentDir(sessionID, newDir)
+
+	return "", nil
+}
+
+// ListDirectoryContents lists the contents of a directory.
+// Returns directory listing and error. On success, returns (output, nil) where output
+// contains the formatted directory listing. On error, returns (contextInfo, error)
+// where contextInfo is the path/argument that caused the error.
+// Possible errors: ErrFileNotFound, ErrTooManyArguments, ErrAccessDenied.
+func ListDirectoryContents(tfs *termfs.FS, sessMgr SessionManager, sessionID string, args []string) (string, error) {
+	currDir := sessMgr.GetCurrentDir(sessionID)
+
+	// Parse flags and path
+	flagSet := posixflag.NewFlagSet()
+	var showAll, longList bool
+	flagSet.BoolVar(&showAll, "all", 'a', false, "show hidden files")
+	flagSet.BoolVar(&longList, "long", 'l', false, "long listing format")
+
+	if err := flagSet.Parse(args); err != nil {
+		return "", fmt.Errorf("%w: %v", ErrInvalidFlag, err)
+	}
+
+	remaining := flagSet.Args()
+	if len(remaining) > 1 {
+		return "", ErrTooManyArguments
+	}
+
+	targetPath := currDir
+	if len(remaining) == 1 {
+		// For ls command, the single remaining argument should be a path
+		// Validate it looks like a reasonable path before using it
+		pathArg := remaining[0]
+		if !isValidPathArgument(pathArg) {
+			return "", fmt.Errorf("%w: invalid path argument", ErrInvalidFlag)
+		}
+		targetPath = resolvePath(currDir, pathArg)
+	}
+
+	openPath := targetPath
+	if openPath == "" {
+		openPath = "."
+	}
+
+	f, err := tfs.Open(openPath)
+	if err != nil {
+		// We know exactly what path argument was provided since we validated it
+		remaining := flagSet.Args()
+		if len(remaining) == 1 {
+			return remaining[0], ErrFileNotFound
+		}
+		// If no path argument, return the current directory for context
+		return ".", ErrFileNotFound
+	}
+	defer f.Close()
+
+	info, err := f.Stat()
+	if err != nil {
+		return "", ErrAccessDenied
+	}
+
+	if !info.IsDir() {
+		return info.Name(), nil
+	}
+
+	readDirFile, ok := f.(fs.ReadDirFile)
+	if !ok {
+		return "", ErrAccessDenied
+	}
+
+	entries, err := readDirFile.ReadDir(-1)
+	if err != nil {
+		return "", ErrAccessDenied
+	}
+
+	// Filter hidden files unless -a is used
+	if !showAll {
+		var filtered []fs.DirEntry
+		for _, entry := range entries {
+			if !strings.HasPrefix(entry.Name(), ".") {
+				filtered = append(filtered, entry)
+			}
+		}
+		entries = filtered
+	}
+
+	if len(entries) == 0 {
+		return "", nil
+	}
+
+	var output strings.Builder
+	for i, entry := range entries {
+		if i > 0 {
+			if longList {
+				output.WriteString("\n")
+			} else {
+				output.WriteString("  ")
+			}
+		}
+
+		name := entry.Name()
+
+		// Long format: show 3-character type indicator (directory/catable/openable)
+		if longList {
+			var typeIndicator string
+			if entry.IsDir() {
+				typeIndicator = "d--"
+				name = name + "/"
+			} else {
+				// All files are catable, determine if also openable
+				// Files are openable if they contain a valid URL
+				entryPath := targetPath + "/" + entry.Name()
+				if targetPath == "" {
+					entryPath = entry.Name()
+				}
+				isOpenable := extractURLFromContents(tfs, entryPath) != ""
+				if isOpenable {
+					typeIndicator = "-co"
+				} else {
+					typeIndicator = "-c-"
+				}
+			}
+			output.WriteString(fmt.Sprintf("%s  %s", typeIndicator, name))
+			continue
+		}
+
+		// Short format: just add / for directories
+		if entry.IsDir() {
+			name = name + "/"
+		}
+		output.WriteString(name)
+	}
+
+	return output.String(), nil
+}
+
+// PrintWorkingDirectory returns the current working directory path.
+// Returns current working directory path and error. On success, returns (path, nil).
+// This function typically does not error, but follows the same pattern for consistency.
+func PrintWorkingDirectory(sessMgr SessionManager, sessionID string) (string, error) {
+	currDir := sessMgr.GetCurrentDir(sessionID)
+	if currDir == "" {
+		return "/", nil
+	}
+	return "/" + currDir, nil
+}
+
+// CatFile reads and returns the contents of a file.
+// Returns file content and error. On success, returns (content, nil).
+// On error, returns (filename, error) where filename is the file the user
+// attempted to access, allowing the caller to format contextual error messages.
+// Possible errors: ErrMissingArgument, ErrFileNotFound, ErrIsDirectory, ErrAccessDenied.
+func CatFile(tfs *termfs.FS, sessMgr SessionManager, sessionID string, args []string) (string, error) {
+	if len(args) < 1 {
+		return "", ErrMissingArgument
+	}
+
+	currDir := sessMgr.GetCurrentDir(sessionID)
+	targetPath := resolvePath(currDir, args[0])
+
+	openPath := targetPath
+	if openPath == "" {
+		openPath = "."
+	}
+
+	f, err := tfs.Open(openPath)
+	if err != nil {
+		return args[0], ErrFileNotFound
+	}
+	defer f.Close()
+
+	info, err := f.Stat()
+	if err != nil {
+		return args[0], ErrAccessDenied
+	}
+
+	if info.IsDir() {
+		return args[0], ErrIsDirectory
+	}
+
+	content, err := io.ReadAll(f)
+	if err != nil {
+		return args[0], ErrAccessDenied
+	}
+
+	return string(content), nil
+}
+
+// OpenFile opens a file and extracts its URL.
+// Returns the URL and error. On success, returns (url, nil).
+// On error, returns (filename, error) where filename is the file the user
+// attempted to access, allowing the caller to format contextual error messages.
+// Possible errors: ErrMissingArgument, ErrNotOpenable.
+func OpenFile(tfs *termfs.FS, sessMgr SessionManager, sessionID string, args []string) (string, error) {
+	if len(args) < 1 {
+		return "", ErrMissingArgument
+	}
+
+	currDir := sessMgr.GetCurrentDir(sessionID)
+	filename := args[0]
+	targetPath := resolvePath(currDir, filename)
+
+	openPath := targetPath
+	if openPath == "" {
+		openPath = "."
+	}
+
+	url := extractURLFromContents(tfs, openPath)
+	if url == "" {
+		return filename, ErrNotOpenable
+	}
+
+	return url, nil
+}
+
+// GeneratePrompt generates a terminal prompt based on the current directory.
+func GeneratePrompt(currDir string) string {
+	switch currDir {
+	case "home/guest":
+		return "guest@machine:~$ "
+	case "":
+		return "guest@machine:/$ "
+	default:
+		return fmt.Sprintf("guest@machine:/%s$ ", strings.TrimPrefix(currDir, "/"))
+	}
+}
+
+// resolvePath resolves a target path relative to the current directory.
+func resolvePath(currDir, targetPath string) string {
+	switch targetPath {
+	case "~", "$HOME":
+		return "home/guest"
+	case ".":
+		return currDir
+	}
+
+	var basePath string
+	var isAbsolute bool
+
+	// Determine if path is absolute and extract the path to resolve
+	if after, ok := strings.CutPrefix(targetPath, "/"); ok {
+		basePath = "" // Start from root for absolute paths
+		targetPath = after
+		isAbsolute = true
+	} else {
+		basePath = currDir // Start from current directory for relative paths
+		isAbsolute = false
+	}
+
+	// Handle empty path after removing leading slash (means root)
+	if isAbsolute && targetPath == "" {
+		return ""
+	}
+
+	components := strings.Split(targetPath, "/")
+
+	var pathComponents []string
+	if basePath != "" && basePath != "." {
+		pathComponents = strings.Split(basePath, "/")
+	}
+
+	for _, component := range components {
+		if component == "" || component == "." {
+			continue
+		}
+
+		if component == ".." {
+			// Go up one directory.
+			// If we're already at root, stay at root.
+			if len(pathComponents) > 0 {
+				pathComponents = pathComponents[:len(pathComponents)-1]
+			}
+			continue
+		}
+
+		// Normal directory component
+		pathComponents = append(pathComponents, component)
+	}
+
+	// Join components back into a path
+	if len(pathComponents) == 0 {
+		return "" // root
+	}
+
+	return strings.Join(pathComponents, "/")
+}
+
+// isValidPathArgument validates that an argument looks like a reasonable path
+// and not like other types of arguments that might be added later.
+func isValidPathArgument(arg string) bool {
+	if arg == "" {
+		return false
+	}
+
+	if len(arg) > 255 { // typical filesystem path limit
+		return false
+	}
+
+	if strings.Contains(arg, "\n") || strings.Contains(arg, "\r") {
+		return false
+	}
+
+	if strings.Contains(arg, "\x00") {
+		return false
+	}
+
+	return true
+}
+
+// extractURLFromContents extracts the URL from the files contents.
+// URLs are extracted from the first occurence of the **URL:** prefix.
+func extractURLFromContents(tfs *termfs.FS, filePath string) string {
+	f, err := tfs.Open(filePath)
+	if err != nil {
+		return ""
+	}
+	defer f.Close()
+
+	info, err := f.Stat()
+	if err != nil || info.IsDir() {
+		return ""
+	}
+
+	content, err := io.ReadAll(f)
+	if err != nil {
+		return ""
+	}
+
+	lines := strings.SplitSeq(string(content), "\n")
+	for line := range lines {
+		if after, ok := strings.CutPrefix(line, "**URL:**"); ok {
+			url := strings.TrimSpace(after)
+			if url != "" {
+				return url
+			}
+		}
+	}
+
+	return ""
+}

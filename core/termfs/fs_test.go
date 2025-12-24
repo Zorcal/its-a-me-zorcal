@@ -94,7 +94,7 @@ func TestNew(t *testing.T) {
 	})
 }
 
-func TestFS_Open(t *testing.T) {
+func TestFS_open(t *testing.T) {
 	tfs := New([]github.Repository{})
 
 	t.Run("existing paths", func(t *testing.T) {
@@ -148,7 +148,7 @@ func TestFS_Open(t *testing.T) {
 	})
 }
 
-func TestFS_ReadDir(t *testing.T) {
+func TestFS_readDir(t *testing.T) {
 	repos := []github.Repository{
 		{Name: "repo1", Description: "First repo", Language: "Go", Stars: 10, URL: "url1", UpdatedAt: "2024-01-01T00:00:00Z"},
 		{Name: "repo2", Description: "Second repo", Language: "JS", Stars: 20, URL: "url2", UpdatedAt: "2024-01-02T00:00:00Z"},
@@ -156,38 +156,70 @@ func TestFS_ReadDir(t *testing.T) {
 
 	tfs := New(repos)
 
-	t.Run("root directory", func(t *testing.T) {
-		entries := readDir(t, tfs, ".")
-		wantFiles := []string{"home"}
-		assertDirEntries(t, entries, wantFiles)
-	})
+	tests := []struct {
+		name      string
+		path      string
+		wantFiles []string
+	}{
+		{
+			name:      "root directory",
+			path:      ".",
+			wantFiles: []string{"home"},
+		},
+		{
+			name:      "home directory",
+			path:      "home",
+			wantFiles: []string{"guest", "zorcal"},
+		},
+		{
+			name:      "zorcal directory",
+			path:      "home/zorcal",
+			wantFiles: []string{".secret.txt", "projects"},
+		},
+		{
+			name:      "projects directory",
+			path:      "home/zorcal/projects",
+			wantFiles: []string{"repo1.md", "repo2.md"},
+		},
+		{
+			name:      "empty directory",
+			path:      "home/guest",
+			wantFiles: []string{},
+		},
+	}
 
-	t.Run("home directory", func(t *testing.T) {
-		entries := readDir(t, tfs, "home")
-		wantFiles := []string{"guest", "zorcal"}
-		assertDirEntries(t, entries, wantFiles)
-	})
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			f, err := tfs.Open(tt.path)
+			if err != nil {
+				t.Fatalf("Open(%q) failed: %v", tt.path, err)
+			}
+			defer f.Close()
 
-	t.Run("zorcal directory", func(t *testing.T) {
-		entries := readDir(t, tfs, "home/zorcal")
-		wantFiles := []string{".secret.txt", "projects"}
-		assertDirEntries(t, entries, wantFiles)
-	})
+			rdf, ok := f.(fs.ReadDirFile)
+			if !ok {
+				t.Fatalf("Open(%q) does not implement ReadDirFile", tt.path)
+			}
 
-	t.Run("projects directory", func(t *testing.T) {
-		entries := readDir(t, tfs, "home/zorcal/projects")
-		wantFiles := []string{"repo1.md", "repo2.md"}
-		assertDirEntries(t, entries, wantFiles)
-	})
+			entries, err := rdf.ReadDir(-1)
+			if err != nil {
+				t.Fatalf("ReadDir() failed: %v", err)
+			}
 
-	t.Run("empty directory", func(t *testing.T) {
-		entries := readDir(t, tfs, "home/guest")
-		wantFiles := []string{}
-		assertDirEntries(t, entries, wantFiles)
-	})
+			if got, want := len(entries), len(tt.wantFiles); got != want {
+				t.Fatalf("len(entries) = %d, want %d", got, want)
+			}
+
+			for i, entry := range entries {
+				if got, want := entry.Name(), tt.wantFiles[i]; got != want {
+					t.Errorf("entries[%d].Name() = %q, want %q", i, got, want)
+				}
+			}
+		})
+	}
 }
 
-func TestFS_ReadFile(t *testing.T) {
+func TestFS_readFile(t *testing.T) {
 	repos := []github.Repository{
 		{
 			Name:        "test-repo",
@@ -230,7 +262,7 @@ func TestFS_ReadFile(t *testing.T) {
 	}
 }
 
-func TestFS_AddOperations(t *testing.T) {
+func TestFS_addOperations(t *testing.T) {
 	tfs := New([]github.Repository{})
 
 	t.Run("add directory", func(t *testing.T) {
@@ -301,7 +333,7 @@ func TestFS_AddOperations(t *testing.T) {
 	})
 }
 
-func TestFS_WalkDir(t *testing.T) {
+func TestFS_walkDir(t *testing.T) {
 	repos := []github.Repository{
 		{Name: "repo1", Description: "First repo", Language: "Go", Stars: 10, URL: "url1", UpdatedAt: "2024-01-01T00:00:00Z"},
 	}
@@ -403,43 +435,4 @@ func TestFileInfo(t *testing.T) {
 			t.Error("Mode() missing directory bit for directory")
 		}
 	})
-}
-
-func readDir(t *testing.T, tfs *FS, path string) []fs.DirEntry {
-	t.Helper()
-
-	f, err := tfs.Open(path)
-	if err != nil {
-		t.Fatalf("Open(%q) failed: %v", path, err)
-	}
-	defer f.Close()
-
-	readDirFile, ok := f.(fs.ReadDirFile)
-	if !ok {
-		t.Fatalf("Open(%q) does not implement ReadDirFile", path)
-	}
-
-	entries, err := readDirFile.ReadDir(-1)
-	if err != nil {
-		t.Fatalf("ReadDir() failed: %v", err)
-	}
-
-	return entries
-}
-
-func assertDirEntries(t *testing.T, entries []fs.DirEntry, wantFiles []string) {
-	t.Helper()
-
-	if got, want := len(entries), len(wantFiles); got != want {
-		t.Errorf("len(entries) = %d, want %d", got, want)
-	}
-
-	for i, entry := range entries {
-		if i >= len(wantFiles) {
-			break
-		}
-		if got, want := entry.Name(), wantFiles[i]; got != want {
-			t.Errorf("entries[%d].Name() = %q, want %q", i, got, want)
-		}
-	}
 }

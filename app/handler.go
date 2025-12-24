@@ -1,12 +1,14 @@
 package app
 
 import (
+	"context"
 	"embed"
 	"fmt"
 	"io/fs"
 	"log/slog"
 	"net/http"
 
+	"github.com/zorcal/its-a-me-zorcal/core/termfs"
 	"github.com/zorcal/its-a-me-zorcal/pkg/httprouter"
 )
 
@@ -17,8 +19,13 @@ var templatesFS embed.FS
 var staticFS embed.FS
 
 func NewHandler(log *slog.Logger, appVersion string, disableStaticCache bool) (http.Handler, error) {
-	sessionMgr := newSessionManager()
-	startSessionCleanupTicker(sessionMgr)
+	sessMgr := newSessionManager()
+	startSessionCleanupTicker(sessMgr)
+
+	// Fetch GitHub repositories and create filesystem
+	ctx := context.Background()
+	repos := fetchGitHubRepos(ctx, log)
+	tfs := termfs.New(repos)
 
 	static, err := fs.Sub(staticFS, "static")
 	if err != nil {
@@ -27,15 +34,15 @@ func NewHandler(log *slog.Logger, appVersion string, disableStaticCache bool) (h
 
 	r := httprouter.New(
 		traceMiddleware(),
-		errorMiddleware(log, sessionMgr),
+		errorMiddleware(log, sessMgr),
 		loggingMiddleware(log),
 		panicRecovery(log),
 	)
 
 	r.SetNotFoundHandler(notFoundHandler(), htmlContentTypeMiddleware())
 	r.Handle("/static/", staticHandler(static, appVersion, disableStaticCache))
-	r.Handle("POST /command", commandHandler(sessionMgr), htmxMiddleware(), htmlContentTypeMiddleware())
-	r.Handle("GET /{$}", indexHandler(log, sessionMgr), htmlContentTypeMiddleware())
+	r.Handle("POST /command", commandHandler(sessMgr, tfs), htmxMiddleware(), htmlContentTypeMiddleware())
+	r.Handle("GET /{$}", indexHandler(log, sessMgr), htmlContentTypeMiddleware())
 
 	return r, nil
 }

@@ -18,13 +18,18 @@ document.addEventListener("DOMContentLoaded", () => {
 		inputText.textContent = input.value;
 	});
 
-	// Handle Ctrl+L
+	// Handle keyboard shortcuts
 	document.addEventListener("keydown", (e) => {
 		if (e.ctrlKey && e.key === "l") {
 			e.preventDefault();
 			input.value = "clear";
 			inputText.textContent = "clear";
 			htmx.trigger("#command-form", "submit");
+		}
+		
+		// Prevent default tab behavior (common in terminals for autocomplete)
+		if (e.key === "Tab") {
+			e.preventDefault();
 		}
 	});
 
@@ -51,6 +56,15 @@ document.addEventListener("DOMContentLoaded", () => {
 		document.getElementById('command-output').innerHTML += event.detail.xhr.responseText;
 		document.getElementById('command-history').scrollTop = document.getElementById('command-history').scrollHeight;
 	};
+
+	// Handle open command response - check for X-Open-URL header and open new tab
+	document.body.addEventListener('htmx:afterRequest', function(event) {
+		const xhr = event.detail.xhr;
+		const openUrl = xhr.getResponseHeader('X-Open-URL');
+		if (openUrl) {
+			window.open(openUrl, '_blank');
+		}
+	});
 });
 
 function checkScreenSize() {

@@ -1,6 +1,7 @@
 package termfs
 
 import (
+	"io"
 	"io/fs"
 	"sort"
 	"strings"
@@ -18,9 +19,10 @@ type File struct {
 
 // openFile implements fs.File and fs.ReadDirFile.
 type openFile struct {
-	file *File
-	fs   *FS
-	path string
+	file   *File
+	fs     *FS
+	path   string
+	offset int64
 }
 
 // Stat implements fs.File.
@@ -33,8 +35,14 @@ func (of *openFile) Read(b []byte) (int, error) {
 	if of.file.isDir {
 		return 0, &fs.PathError{Op: "read", Path: of.path, Err: fs.ErrInvalid}
 	}
-	copy(b, of.file.content)
-	return len(of.file.content), nil
+	
+	if of.offset >= int64(len(of.file.content)) {
+		return 0, io.EOF
+	}
+	
+	n := copy(b, of.file.content[of.offset:])
+	of.offset += int64(n)
+	return n, nil
 }
 
 // Close implements fs.File.
