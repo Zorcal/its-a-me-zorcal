@@ -1,1 +1,16 @@
-{{template "base" .}} {{define "content"}} 404 - Page Not Found {{end}}
+{{template "base" .}} {{define "content"}}
+<div class="error-page-container">
+  <div class="error-banner">
+    <h1>404 - Not Found</h1>
+    <p>The requested page does not exist in this dimension...</p>
+    <div class="error-info">
+      <h3>Available routes:</h3>
+      <ul>
+        <li>/ - Terminal interface</li>
+        <li>/static/* - Static assets</li>
+      </ul>
+    </div>
+    <a href="/" class="terminal-link">Return to terminal</a>
+  </div>
+</div>
+{{end}}
