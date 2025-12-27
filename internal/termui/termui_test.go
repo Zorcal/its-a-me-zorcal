@@ -711,7 +711,7 @@ func TestOpenFile_error(t *testing.T) {
 			name:        "nonexistent file",
 			startDir:    "",
 			args:        []string{"nonexistent.md"},
-			wantErr:     ErrNotOpenable,
+			wantErr:     ErrFileNotFound,
 			wantContext: "nonexistent.md",
 		},
 		{
@@ -725,7 +725,7 @@ func TestOpenFile_error(t *testing.T) {
 			name:        "directory instead of file",
 			startDir:    "",
 			args:        []string{"home"},
-			wantErr:     ErrNotOpenable,
+			wantErr:     ErrIsDirectory,
 			wantContext: "home",
 		},
 		{
@@ -744,7 +744,7 @@ func TestOpenFile_error(t *testing.T) {
 			if gotErr == nil {
 				t.Fatalf("OpenFile(tfs, sessMgr, %q, %v) error = nil, want error", sessionID, tt.args)
 			}
-			if gotErr != tt.wantErr {
+			if !errors.Is(gotErr, tt.wantErr) {
 				t.Errorf("OpenFile(tfs, sessMgr, %q, %v) error = %v, want %v", sessionID, tt.args, gotErr, tt.wantErr)
 			}
 			if gotContext != tt.wantContext {
