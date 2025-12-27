@@ -1,6 +1,7 @@
 package session
 
 import (
+	"slices"
 	"sync"
 	"time"
 
@@ -40,7 +41,7 @@ func (m *Manager[T]) GetOrCreateSession(sessionID string) *Session[T] {
 	if !exists {
 		session = &Session[T]{
 			id:           sessionID,
-			history:      make([]T, 0),
+			history:      nil,
 			lastUsed:     time.Now(),
 			historyLimit: m.historyLimit,
 		}
@@ -95,9 +96,7 @@ func (s *Session[T]) History() []T {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
-	history := make([]T, len(s.history))
-	copy(history, s.history)
-	return history
+	return slices.Clone(s.history)
 }
 
 // ClearHistory removes all entries from the session history.

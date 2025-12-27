@@ -1,11 +1,12 @@
 package termui
 
 import (
+	"bufio"
 	"errors"
 	"fmt"
-	"io"
 	"io/fs"
 	"path"
+	"slices"
 	"strings"
 
 	"github.com/zorcal/its-a-me-zorcal/core/termfs"
@@ -52,15 +53,9 @@ func ChangeDirectory(tfs *termfs.FS, sessMgr SessionManager, sessionID string, a
 		openPath = "."
 	}
 
-	f, err := tfs.Open(openPath)
+	info, err := fs.Stat(tfs, openPath)
 	if err != nil {
 		return targetPath, ErrFileNotFound
-	}
-	defer f.Close()
-
-	info, err := f.Stat()
-	if err != nil {
-		return targetPath, ErrAccessDenied
 	}
 
 	if !info.IsDir() {
@@ -111,7 +106,7 @@ func ListDirectoryContents(tfs *termfs.FS, sessMgr SessionManager, sessionID str
 		openPath = "."
 	}
 
-	f, err := tfs.Open(openPath)
+	info, err := fs.Stat(tfs, openPath)
 	if err != nil {
 		// We know exactly what path argument was provided since we validated it
 		remaining := flagSet.Args()
@@ -121,36 +116,21 @@ func ListDirectoryContents(tfs *termfs.FS, sessMgr SessionManager, sessionID str
 		// If no path argument, return the current directory for context
 		return ".", ErrFileNotFound
 	}
-	defer f.Close()
-
-	info, err := f.Stat()
-	if err != nil {
-		return "", ErrAccessDenied
-	}
 
 	if !info.IsDir() {
 		return info.Name(), nil
 	}
 
-	readDirFile, ok := f.(fs.ReadDirFile)
-	if !ok {
-		return "", ErrAccessDenied
-	}
-
-	entries, err := readDirFile.ReadDir(-1)
+	entries, err := fs.ReadDir(tfs, openPath)
 	if err != nil {
 		return "", ErrAccessDenied
 	}
 
 	// Filter hidden files unless -a is used
 	if !showAll {
-		var filtered []fs.DirEntry
-		for _, entry := range entries {
-			if !strings.HasPrefix(entry.Name(), ".") {
-				filtered = append(filtered, entry)
-			}
-		}
-		entries = filtered
+		entries = slices.DeleteFunc(entries, func(entry fs.DirEntry) bool {
+			return strings.HasPrefix(entry.Name(), ".")
+		})
 	}
 
 	if len(entries) == 0 {
@@ -232,22 +212,16 @@ func CatFile(tfs *termfs.FS, sessMgr SessionManager, sessionID string, args []st
 		openPath = "."
 	}
 
-	f, err := tfs.Open(openPath)
+	info, err := fs.Stat(tfs, openPath)
 	if err != nil {
 		return args[0], ErrFileNotFound
-	}
-	defer f.Close()
-
-	info, err := f.Stat()
-	if err != nil {
-		return args[0], ErrAccessDenied
 	}
 
 	if info.IsDir() {
 		return args[0], ErrIsDirectory
 	}
 
-	content, err := io.ReadAll(f)
+	content, err := fs.ReadFile(tfs, openPath)
 	if err != nil {
 		return args[0], ErrAccessDenied
 	}
@@ -352,24 +326,20 @@ func isValidPathArgument(arg string) bool {
 // extractURLFromContents extracts the URL from the files contents.
 // URLs are extracted from the first occurence of the **URL:** prefix.
 func extractURLFromContents(tfs *termfs.FS, filePath string) string {
+	info, err := fs.Stat(tfs, filePath)
+	if err != nil || info.IsDir() {
+		return ""
+	}
+
 	f, err := tfs.Open(filePath)
 	if err != nil {
 		return ""
 	}
 	defer f.Close()
 
-	info, err := f.Stat()
-	if err != nil || info.IsDir() {
-		return ""
-	}
-
-	content, err := io.ReadAll(f)
-	if err != nil {
-		return ""
-	}
-
-	lines := strings.SplitSeq(string(content), "\n")
-	for line := range lines {
+	scanner := bufio.NewScanner(f)
+	for scanner.Scan() {
+		line := scanner.Text()
 		if after, ok := strings.CutPrefix(line, "**URL:**"); ok {
 			url := strings.TrimSpace(after)
 			if url != "" {

@@ -3,6 +3,7 @@ package app
 import (
 	"context"
 	"log/slog"
+	"slices"
 	"sync"
 	"time"
 
@@ -19,8 +20,7 @@ var (
 func fetchGitHubRepos(ctx context.Context, log *slog.Logger) []github.Repository {
 	reposCacheMu.RLock()
 	if time.Since(reposCacheTime) < reposCacheTTL && len(cachedRepos) > 0 {
-		result := make([]github.Repository, len(cachedRepos))
-		copy(result, cachedRepos)
+		result := slices.Clone(cachedRepos)
 		reposCacheMu.RUnlock()
 		return result
 	}
@@ -31,8 +31,7 @@ func fetchGitHubRepos(ctx context.Context, log *slog.Logger) []github.Repository
 		log.ErrorContext(ctx, "Unable to fetch GitHub repositories", "error", err)
 		reposCacheMu.RLock()
 		if len(cachedRepos) > 0 {
-			result := make([]github.Repository, len(cachedRepos))
-			copy(result, cachedRepos)
+			result := slices.Clone(cachedRepos)
 			reposCacheMu.RUnlock()
 			return result
 		}
