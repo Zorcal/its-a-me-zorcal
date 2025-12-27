@@ -35,11 +35,11 @@ func (of *openFile) Read(b []byte) (int, error) {
 	if of.file.isDir {
 		return 0, &fs.PathError{Op: "read", Path: of.path, Err: fs.ErrInvalid}
 	}
-	
+
 	if of.offset >= int64(len(of.file.content)) {
 		return 0, io.EOF
 	}
-	
+
 	n := copy(b, of.file.content[of.offset:])
 	of.offset += int64(n)
 	return n, nil
@@ -58,18 +58,17 @@ func (of *openFile) ReadDir(n int) ([]fs.DirEntry, error) {
 
 	var entries []fs.DirEntry
 
-	// Find all files that are children of this directory
+	// Find all files that are children of this directory.
 	for filePath, file := range of.fs.files {
 		if of.path == "" {
-			// Root directory - include files directly in root
+			// Root directory - include files directly in root.
 			if !strings.Contains(filePath, "/") && filePath != "" {
 				entries = append(entries, &dirEntry{file: file})
 			}
 		} else {
-			// Check if this file is a direct child of the current directory
+			// Check if this file is a direct child of the current directory.
 			if after, ok := strings.CutPrefix(filePath, of.path+"/"); ok {
-				remaining := after
-				if !strings.Contains(remaining, "/") {
+				if !strings.Contains(after, "/") {
 					entries = append(entries, &dirEntry{file: file})
 				}
 			}
@@ -114,4 +113,3 @@ func (de *dirEntry) Type() fs.FileMode {
 func (de *dirEntry) Info() (fs.FileInfo, error) {
 	return &FileInfo{file: de.file}, nil
 }
-

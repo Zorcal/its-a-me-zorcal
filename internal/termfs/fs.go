@@ -46,7 +46,6 @@ func setupFS(fs *FS, repos []github.Repository) {
 		fs.AddFile(fmt.Sprintf("home/zorcal/projects/%s.md", repo.Name), []byte(content))
 	}
 
-	// Welcome message
 	welcomeMessage := `Welcome to Zorcal's Terminal Interface!
 
 This is a web-based terminal emulator that simulates a Unix-like environment.
@@ -62,7 +61,7 @@ Happy exploring!
 
 	fs.AddFile("home/guest/welcome.txt", []byte(welcomeMessage))
 
-	// Easter egg
+	// Easter egg.
 	secretMessage := `🎉 Congratulations! You found the secret file! 🎉
 
 You're clearly a true hacker at heart. Welcome to the matrix!

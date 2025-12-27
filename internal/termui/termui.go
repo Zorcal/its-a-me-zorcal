@@ -75,8 +75,8 @@ func ChangeDirectory(tfs *termfs.FS, sessMgr SessionManager, sessionID string, a
 func ListDirectoryContents(tfs *termfs.FS, sessMgr SessionManager, sessionID string, args []string) (string, error) {
 	currDir := sessMgr.GetCurrentDir(sessionID)
 
-	// Parse flags and path
 	flagSet := posixflag.NewFlagSet()
+
 	var showAll, longList bool
 	flagSet.BoolVar(&showAll, "all", 'a', false, "show hidden files")
 	flagSet.BoolVar(&longList, "long", 'l', false, "long listing format")
@@ -92,8 +92,8 @@ func ListDirectoryContents(tfs *termfs.FS, sessMgr SessionManager, sessionID str
 
 	targetPath := currDir
 	if len(remaining) == 1 {
-		// For ls command, the single remaining argument should be a path
-		// Validate it looks like a reasonable path before using it
+		// For ls command, the single remaining argument should be a path.
+		// Validate it looks like a reasonable path before using it.
 		pathArg := remaining[0]
 		if !isValidPathArgument(pathArg) {
 			return "", fmt.Errorf("%w: invalid path argument", ErrInvalidFlag)
@@ -108,13 +108,13 @@ func ListDirectoryContents(tfs *termfs.FS, sessMgr SessionManager, sessionID str
 
 	info, err := fs.Stat(tfs, openPath)
 	if err != nil {
-		// We know exactly what path argument was provided since we validated it
+		// We know exactly what path argument was provided since we validated it.
 		remaining := flagSet.Args()
 		wrappedErr := fmt.Errorf("stat path %q: %w", openPath, mapFSErr(err))
 		if len(remaining) == 1 {
 			return remaining[0], wrappedErr
 		}
-		// If no path argument, return the current directory for context
+		// If no path argument, return the current directory for context.
 		return ".", wrappedErr
 	}
 
@@ -127,7 +127,7 @@ func ListDirectoryContents(tfs *termfs.FS, sessMgr SessionManager, sessionID str
 		return "", fmt.Errorf("read directory %q: %w", openPath, mapFSErr(err))
 	}
 
-	// Filter hidden files unless -a is used
+	// Filter hidden files unless -a is used.
 	if !showAll {
 		entries = slices.DeleteFunc(entries, func(entry fs.DirEntry) bool {
 			return strings.HasPrefix(entry.Name(), ".")
@@ -150,15 +150,15 @@ func ListDirectoryContents(tfs *termfs.FS, sessMgr SessionManager, sessionID str
 
 		name := entry.Name()
 
-		// Long format: show 3-character type indicator (directory/catable/openable)
+		// Long format: show 3-character type indicator (directory/catable/openable).
 		if longList {
 			var typeIndicator string
 			if entry.IsDir() {
 				typeIndicator = "d--"
 				name = name + "/"
 			} else {
-				// All files are catable, determine if also openable
-				// Files are openable if they contain a valid URL
+				// All files are catable, determine if also openable.
+				// Files are openable if they contain a valid URL.
 				entryPath := targetPath + "/" + entry.Name()
 				if targetPath == "" {
 					entryPath = entry.Name()
@@ -174,7 +174,7 @@ func ListDirectoryContents(tfs *termfs.FS, sessMgr SessionManager, sessionID str
 			continue
 		}
 
-		// Short format: just add / for directories
+		// Short format: just add / for directories.
 		if entry.IsDir() {
 			name = name + "/"
 		}
@@ -294,8 +294,7 @@ func mapFSErr(err error) error {
 		return ErrAccessDenied
 	}
 
-	// For unknown errors, return access denied to avoid leaking internal details
-	return ErrAccessDenied
+	return err
 }
 
 // resolvePath resolves a target path relative to the current directory.
