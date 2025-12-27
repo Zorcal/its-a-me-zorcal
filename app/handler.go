@@ -7,6 +7,7 @@ import (
 	"io/fs"
 	"log/slog"
 	"net/http"
+	"time"
 
 	"github.com/zorcal/its-a-me-zorcal/core/termfs"
 	"github.com/zorcal/its-a-me-zorcal/pkg/httprouter"
@@ -22,9 +23,9 @@ func NewHandler(log *slog.Logger, appVersion string, disableStaticCache bool) (h
 	sessMgr := newSessionManager()
 	startSessionCleanupTicker(sessMgr)
 
-	// Fetch GitHub repositories and create filesystem
-	ctx := context.Background()
-	repos := fetchGitHubRepos(ctx, log)
+	ghFetcher := newCachedGitHubFetcher("Zorcal", 24*time.Hour)
+
+	repos := ghFetcher.FetchRepositories(context.Background(), log)
 	tfs := termfs.New(repos)
 
 	static, err := fs.Sub(staticFS, "static")
@@ -43,7 +44,7 @@ func NewHandler(log *slog.Logger, appVersion string, disableStaticCache bool) (h
 	r.Handle("/static/", staticHandler(static, appVersion, disableStaticCache))
 	r.Handle("POST /command", commandHandler(sessMgr, tfs), htmxMiddleware(), htmlContentTypeMiddleware())
 	r.Handle("GET /history", historyHandler(sessMgr))
-	r.Handle("GET /{$}", indexHandler(log, sessMgr), htmlContentTypeMiddleware())
+	r.Handle("GET /{$}", indexHandler(log, sessMgr, ghFetcher), htmlContentTypeMiddleware())
 
 	return r, nil
 }

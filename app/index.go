@@ -30,7 +30,7 @@ type IndexData struct {
 	CurrentPrompt string
 }
 
-func indexHandler(log *slog.Logger, sessionMgr *session.Manager[terminalSessionEntry]) httprouter.Handler {
+func indexHandler(log *slog.Logger, sessionMgr *session.Manager[terminalSessionEntry], ghFetcher *cachedGitHubFetcher) httprouter.Handler {
 	tmpl, err := template.ParseFS(templatesFS, "templates/base.html", "templates/index.html")
 	if err != nil {
 		return func(w http.ResponseWriter, r *http.Request) error {
@@ -50,7 +50,7 @@ func indexHandler(log *slog.Logger, sessionMgr *session.Manager[terminalSessionE
 		}
 
 		data := IndexData{
-			Repos:         fetchGitHubRepos(r.Context(), log),
+			Repos:         ghFetcher.FetchRepositories(r.Context(), log),
 			WelcomeBanner: template.HTML(welcomeBannerHTML),
 			History:       sess.History(),
 			CurrentPrompt: termui.GeneratePrompt(sessAdapter.GetCurrentDir(sessionID)),

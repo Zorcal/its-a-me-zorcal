@@ -10,39 +10,47 @@ import (
 	"github.com/zorcal/its-a-me-zorcal/pkg/github"
 )
 
-var (
-	cachedRepos    []github.Repository
-	reposCacheTime time.Time
-	reposCacheTTL  = 10 * time.Minute
-	reposCacheMu   sync.RWMutex
-)
+type cachedGitHubFetcher struct {
+	mu        sync.RWMutex
+	repos     []github.Repository
+	cacheTime time.Time
+	ttl       time.Duration
+	username  string
+}
 
-func fetchGitHubRepos(ctx context.Context, log *slog.Logger) []github.Repository {
-	reposCacheMu.RLock()
-	if time.Since(reposCacheTime) < reposCacheTTL && len(cachedRepos) > 0 {
-		result := slices.Clone(cachedRepos)
-		reposCacheMu.RUnlock()
+func newCachedGitHubFetcher(username string, ttl time.Duration) *cachedGitHubFetcher {
+	return &cachedGitHubFetcher{
+		username: username,
+		ttl:      ttl,
+	}
+}
+
+func (g *cachedGitHubFetcher) FetchRepositories(ctx context.Context, log *slog.Logger) []github.Repository {
+	g.mu.RLock()
+	if time.Since(g.cacheTime) < g.ttl && len(g.repos) > 0 {
+		result := slices.Clone(g.repos)
+		g.mu.RUnlock()
 		return result
 	}
-	reposCacheMu.RUnlock()
+	g.mu.RUnlock()
 
-	repos, err := github.FetchRepositories(ctx, "Zorcal")
+	repos, err := github.FetchRepositories(ctx, g.username)
 	if err != nil {
 		log.ErrorContext(ctx, "Unable to fetch GitHub repositories", "error", err)
-		reposCacheMu.RLock()
-		if len(cachedRepos) > 0 {
-			result := slices.Clone(cachedRepos)
-			reposCacheMu.RUnlock()
+		g.mu.RLock()
+		if len(g.repos) > 0 {
+			result := slices.Clone(g.repos)
+			g.mu.RUnlock()
 			return result
 		}
-		reposCacheMu.RUnlock()
+		g.mu.RUnlock()
 		return []github.Repository{}
 	}
 
-	reposCacheMu.Lock()
-	cachedRepos = repos
-	reposCacheTime = time.Now()
-	reposCacheMu.Unlock()
+	g.mu.Lock()
+	g.repos = repos
+	g.cacheTime = time.Now()
+	g.mu.Unlock()
 
 	return repos
 }
