@@ -93,7 +93,7 @@ document.addEventListener("DOMContentLoaded", () => {
 		updateDisplay();
 	});
 
-	// Update display when cursor moves - optimized for instant response
+	// Update display when cursor moves
 	input.addEventListener("keydown", (e) => {
 		if (
 			e.key === "ArrowLeft" ||

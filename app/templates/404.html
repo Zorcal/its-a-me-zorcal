@@ -1,4 +1,8 @@
-{{template "base" .}} {{define "content"}}
+{{template "base" .}} 
+{{define "head"}}
+<link href="/static/error.css" rel="stylesheet" />
+{{end}}
+{{define "content"}}
 <div class="error-page-container">
   <div class="error-banner">
     <h1>404 - Not Found</h1>

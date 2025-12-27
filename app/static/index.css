@@ -1,4 +1,3 @@
-/* Matrix/Hackerman Terminal Theme */
 * {
   margin: 0;
   padding: 0;
@@ -6,7 +5,9 @@
 }
 
 body {
-  font-family: 'SF Mono', 'Monaco', 'Inconsolata', 'Roboto Mono', 'Consolas', 'Courier New', monospace;
+  font-family:
+    "SF Mono", "Monaco", "Inconsolata", "Roboto Mono", "Consolas",
+    "Courier New", monospace;
   background: #000;
   color: #00ff00;
   height: 100vh;
@@ -27,7 +28,7 @@ body {
   background: rgba(0, 0, 0, 0.95);
   border: 2px solid #00ff00;
   border-radius: 8px;
-  box-shadow: 
+  box-shadow:
     0 0 20px #00ff00,
     inset 0 0 20px rgba(0, 255, 0, 0.1);
   display: flex;
@@ -35,41 +36,6 @@ body {
   padding: 20px;
   backdrop-filter: blur(2px);
 }
-
-/* Matrix digital rain background */
-body::before {
-  content: "";
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  background: 
-    radial-gradient(ellipse at center, rgba(0, 255, 0, 0.15) 0%, transparent 70%),
-    repeating-linear-gradient(
-      90deg,
-      transparent,
-      transparent 98px,
-      rgba(0, 255, 0, 0.03) 100px
-    ),
-    repeating-linear-gradient(
-      0deg,
-      transparent,
-      transparent 98px,
-      rgba(0, 255, 0, 0.03) 100px
-    );
-  opacity: 0.4;
-  animation: matrix-pulse 4s ease-in-out infinite alternate;
-  pointer-events: none;
-  z-index: -2;
-}
-
-@keyframes matrix-pulse {
-  0% { opacity: 0.3; }
-  100% { opacity: 0.6; }
-}
-
-
 
 #command-history {
   flex: 1;
@@ -129,8 +95,6 @@ body::before {
   z-index: 10;
 }
 
-
-/* Output styling */
 .welcome {
   color: #00ff00;
   text-shadow: 0 0 10px #00ff00;
@@ -141,74 +105,17 @@ body::before {
   font-size: 14px;
 }
 
-.error-page-container {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  min-height: 100vh;
-  padding: 20px;
-}
-
-.error-banner {
-  color: #ff6b6b;
-  text-shadow: 0 0 10px #ff6b6b;
-  animation: error-glow 2s ease-in-out infinite alternate;
-  text-align: center;
-  padding: 40px;
-  border: 2px solid #ff6b6b;
-  border-radius: 8px;
-  background: rgba(0, 0, 0, 0.95);
-  box-shadow: 0 0 20px #ff6b6b;
-  backdrop-filter: blur(2px);
-  max-width: 500px;
-}
-
-.error-banner h1 {
-  font-size: 2.5em;
-  margin-bottom: 20px;
-  text-shadow: 0 0 15px #ff6b6b;
-}
-
-.error-banner p {
-  font-size: 1.2em;
-  margin-bottom: 20px;
-  opacity: 0.9;
-}
-
-.error-info {
-  margin: 20px 0;
-  text-align: left;
-}
-
-.error-info h3 {
-  margin-bottom: 10px;
-  color: #ffaa44;
-}
-
-.error-info ul {
-  list-style: none;
-  padding: 0;
-}
-
-.error-info li {
-  margin: 5px 0;
-  font-family: monospace;
-  color: #aaff88;
-}
-
-
-
 @keyframes glow {
-  from { text-shadow: 0 0 10px #00ff00; }
-  to { text-shadow: 0 0 20px #00ff00, 0 0 30px #00ff00; }
+  from {
+    text-shadow: 0 0 10px #00ff00;
+  }
+  to {
+    text-shadow:
+      0 0 20px #00ff00,
+      0 0 30px #00ff00;
+  }
 }
 
-@keyframes error-glow {
-  from { text-shadow: 0 0 10px #ff6b6b; }
-  to { text-shadow: 0 0 20px #ff6b6b, 0 0 30px #ff6b6b; }
-}
-
-/* Command output styling */
 .command-prompt {
   color: #00ff00;
   text-shadow: 0 0 3px #00ff00;
@@ -221,7 +128,6 @@ body::before {
   margin: 0;
 }
 
-/* Error styling - using modifier classes */
 .command-prompt.error {
   color: #00ff00;
   text-shadow: 0 0 3px #00ff00;
@@ -229,6 +135,11 @@ body::before {
 
 .command-output.error {
   color: #ff6b6b;
+}
+
+.error {
+  color: #ff0040;
+  text-shadow: 0 0 5px #ff0040;
 }
 
 .error-code {
@@ -248,59 +159,6 @@ body::before {
   font-size: 0.9em;
 }
 
-.error-page {
-  color: #ff6b6b;
-  text-align: center;
-  padding: 20px;
-}
-
-.error-page h1 {
-  text-shadow: 0 0 10px #ff6b6b;
-}
-
-.error {
-  color: #ff0040;
-  text-shadow: 0 0 5px #ff0040;
-}
-
-.success {
-  color: #00ffaa;
-  text-shadow: 0 0 5px #00ffaa;
-}
-
-.file-list {
-  color: #88ff88;
-  font-size: 13px;
-}
-
-.file-content {
-  color: #aaff88;
-  margin-left: 20px;
-  font-style: italic;
-}
-
-.help {
-  color: #66ff66;
-  line-height: 1.6;
-  white-space: pre;
-}
-
-/* Terminal link styling */
-.terminal-link {
-  color: #00ffaa;
-  text-decoration: underline;
-  text-shadow: 0 0 5px #00ffaa;
-  transition: all 0.3s ease;
-}
-
-.terminal-link:hover {
-  color: #00ff00;
-  text-shadow: 0 0 10px #00ff00;
-}
-
-/* Hover effects for interactive elements */
-
-/* Screen size warning */
 #screen-size-warning {
   position: fixed;
   top: 0;
@@ -339,18 +197,23 @@ body::before {
   font-size: 13px;
 }
 
-/* Additional matrix effects */
-.matrix-char {
-  animation: matrix-flicker 3s linear infinite;
+.file-list {
+  color: #88ff88;
+  font-size: 13px;
 }
 
-@keyframes matrix-flicker {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.7; }
+.file-content {
+  color: #aaff88;
+  margin-left: 20px;
+  font-style: italic;
 }
 
-/* Selection styling */
+.help {
+  color: #66ff66;
+  line-height: 1.6;
+  white-space: pre;
+}
+
 ::selection {
   background: rgba(0, 255, 0, 0.3);
 }
-

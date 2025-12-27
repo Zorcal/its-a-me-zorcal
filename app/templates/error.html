@@ -1,4 +1,7 @@
 {{template "base" .}}
+{{define "head"}}
+<link href="/static/error.css" rel="stylesheet" />
+{{end}}
 {{define "content"}}
 <div class="error-page">
   <h1>Error {{.StatusCode}}</h1>
