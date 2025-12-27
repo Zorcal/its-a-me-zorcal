@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/zorcal/its-a-me-zorcal/core/termui"
 	"github.com/zorcal/its-a-me-zorcal/pkg/httprouter"
 	"github.com/zorcal/its-a-me-zorcal/pkg/session"
 	"github.com/zorcal/its-a-me-zorcal/pkg/slogctx"
@@ -181,17 +182,20 @@ func errorMiddleware(log *slog.Logger, sessionMgr *session.Manager[terminalSessi
 
 			sessionID := getSessionID(r)
 			sess := sessionMgr.GetOrCreateSession(sessionID)
+
+			sessAdapter := newSessionAdapter(sessionMgr)
+			currPrompt := termui.GeneratePrompt(sessAdapter.GetCurrentDir(sessionID))
+
 			entry := newTerminalSessionEntry(command, output, true)
+			entry.Prompt = currPrompt
 			sess.AddEntry(entry)
 
-			data := struct {
-				Command string
-				Output  template.HTML
-				Error   bool
-			}{
-				Command: command,
-				Output:  output,
-				Error:   true,
+			data := cmdTmplData{
+				Command:    command,
+				Output:     output,
+				Error:      true,
+				Prompt:     currPrompt,
+				NextPrompt: currPrompt,
 			}
 
 			if tmplErr := tmpl.ExecuteTemplate(w, "command_output.html", data); tmplErr != nil {

@@ -55,7 +55,7 @@ func ChangeDirectory(tfs *termfs.FS, sessMgr SessionManager, sessionID string, a
 
 	info, err := fs.Stat(tfs, openPath)
 	if err != nil {
-		return targetPath, ErrFileNotFound
+		return targetPath, fmt.Errorf("stat directory %q: %w", openPath, mapFSErr(err))
 	}
 
 	if !info.IsDir() {
@@ -110,11 +110,12 @@ func ListDirectoryContents(tfs *termfs.FS, sessMgr SessionManager, sessionID str
 	if err != nil {
 		// We know exactly what path argument was provided since we validated it
 		remaining := flagSet.Args()
+		wrappedErr := fmt.Errorf("stat path %q: %w", openPath, mapFSErr(err))
 		if len(remaining) == 1 {
-			return remaining[0], ErrFileNotFound
+			return remaining[0], wrappedErr
 		}
 		// If no path argument, return the current directory for context
-		return ".", ErrFileNotFound
+		return ".", wrappedErr
 	}
 
 	if !info.IsDir() {
@@ -123,7 +124,7 @@ func ListDirectoryContents(tfs *termfs.FS, sessMgr SessionManager, sessionID str
 
 	entries, err := fs.ReadDir(tfs, openPath)
 	if err != nil {
-		return "", ErrAccessDenied
+		return "", fmt.Errorf("read directory %q: %w", openPath, mapFSErr(err))
 	}
 
 	// Filter hidden files unless -a is used
@@ -214,7 +215,7 @@ func CatFile(tfs *termfs.FS, sessMgr SessionManager, sessionID string, args []st
 
 	info, err := fs.Stat(tfs, openPath)
 	if err != nil {
-		return args[0], ErrFileNotFound
+		return args[0], fmt.Errorf("stat file %q: %w", openPath, mapFSErr(err))
 	}
 
 	if info.IsDir() {
@@ -223,7 +224,7 @@ func CatFile(tfs *termfs.FS, sessMgr SessionManager, sessionID string, args []st
 
 	content, err := fs.ReadFile(tfs, openPath)
 	if err != nil {
-		return args[0], ErrAccessDenied
+		return args[0], fmt.Errorf("read file %q: %w", openPath, mapFSErr(err))
 	}
 
 	return string(content), nil
@@ -233,7 +234,7 @@ func CatFile(tfs *termfs.FS, sessMgr SessionManager, sessionID string, args []st
 // Returns the URL and error. On success, returns (url, nil).
 // On error, returns (filename, error) where filename is the file the user
 // attempted to access, allowing the caller to format contextual error messages.
-// Possible errors: ErrMissingArgument, ErrNotOpenable.
+// Possible errors: ErrMissingArgument, ErrFileNotFound, ErrIsDirectory, ErrNotOpenable.
 func OpenFile(tfs *termfs.FS, sessMgr SessionManager, sessionID string, args []string) (string, error) {
 	if len(args) < 1 {
 		return "", ErrMissingArgument
@@ -246,6 +247,15 @@ func OpenFile(tfs *termfs.FS, sessMgr SessionManager, sessionID string, args []s
 	openPath := targetPath
 	if openPath == "" {
 		openPath = "."
+	}
+
+	info, err := fs.Stat(tfs, openPath)
+	if err != nil {
+		return filename, fmt.Errorf("stat file %q: %w", openPath, mapFSErr(err))
+	}
+
+	if info.IsDir() {
+		return filename, ErrIsDirectory
 	}
 
 	url := extractURLFromContents(tfs, openPath)
@@ -266,6 +276,26 @@ func GeneratePrompt(currDir string) string {
 	default:
 		return fmt.Sprintf("guest@machine:/%s$ ", strings.TrimPrefix(currDir, "/"))
 	}
+}
+
+// mapFSErr maps filesystem errors to our domain-specific errors.
+func mapFSErr(err error) error {
+	if err == nil {
+		return nil
+	}
+
+	if errors.Is(err, fs.ErrNotExist) {
+		return ErrFileNotFound
+	}
+	if errors.Is(err, fs.ErrPermission) {
+		return ErrAccessDenied
+	}
+	if errors.Is(err, fs.ErrInvalid) {
+		return ErrAccessDenied
+	}
+
+	// For unknown errors, return access denied to avoid leaking internal details
+	return ErrAccessDenied
 }
 
 // resolvePath resolves a target path relative to the current directory.

@@ -150,12 +150,12 @@ func runOpenCommand(w http.ResponseWriter, sess *session.Session[terminalSession
 		switch {
 		case errors.Is(err, termui.ErrMissingArgument):
 			output = "open: missing file argument"
-		case errors.Is(err, termui.ErrNotOpenable):
-			output = "open: file is not openable"
 		case errors.Is(err, termui.ErrFileNotFound):
-			output = fmt.Sprintf("open: %s: No such file", result)
+			output = fmt.Sprintf("open: %s: No such file or directory", result)
 		case errors.Is(err, termui.ErrIsDirectory):
 			output = fmt.Sprintf("open: %s: Is a directory", result)
+		case errors.Is(err, termui.ErrNotOpenable):
+			output = "open: file is not openable"
 		default:
 			output = "open: internal error"
 		}
@@ -189,12 +189,12 @@ func runCdCommand(w http.ResponseWriter, sess *session.Session[terminalSessionEn
 	target, err := termui.ChangeDirectory(tfs, sessAdapter, sessionID, args)
 	if err != nil {
 		isError = true
-		switch err {
-		case termui.ErrFileNotFound:
+		switch {
+		case errors.Is(err, termui.ErrFileNotFound):
 			output = fmt.Sprintf("cd: %s: No such file or directory", target)
-		case termui.ErrNotDirectory:
+		case errors.Is(err, termui.ErrNotDirectory):
 			output = fmt.Sprintf("cd: %s: Not a directory", target)
-		case termui.ErrAccessDenied:
+		case errors.Is(err, termui.ErrAccessDenied):
 			output = fmt.Sprintf("cd: %s: Permission denied", target)
 		default:
 			output = fmt.Sprintf("cd: %s: internal error", target)
@@ -294,14 +294,14 @@ func runCatCommand(w http.ResponseWriter, sess *session.Session[terminalSessionE
 	result, err := termui.CatFile(tfs, sessAdapter, sessionID, args)
 	if err != nil {
 		isError = true
-		switch err {
-		case termui.ErrMissingArgument:
+		switch {
+		case errors.Is(err, termui.ErrMissingArgument):
 			output = "cat: missing file argument"
-		case termui.ErrFileNotFound:
+		case errors.Is(err, termui.ErrFileNotFound):
 			output = fmt.Sprintf("cat: %s: No such file or directory", result)
-		case termui.ErrIsDirectory:
+		case errors.Is(err, termui.ErrIsDirectory):
 			output = fmt.Sprintf("cat: %s: Is a directory", result)
-		case termui.ErrAccessDenied:
+		case errors.Is(err, termui.ErrAccessDenied):
 			output = fmt.Sprintf("cat: %s: Permission denied", result)
 		default:
 			output = "cat: internal error"

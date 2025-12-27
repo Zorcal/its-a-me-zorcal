@@ -133,8 +133,8 @@ func TestChangeDirectory_error(t *testing.T) {
 		if gotErr == nil {
 			t.Fatalf("ChangeDirectory(tfs, sessMgr, %q, %v) error = nil, want error", sessionID, []string{in})
 		}
-		if want := ErrFileNotFound; gotErr != want {
-			t.Errorf("ChangeDirectory(tfs, sessMgr, %q, %v) error = %v, want %v", sessionID, []string{in}, gotErr, want)
+		if !errors.Is(gotErr, ErrFileNotFound) {
+			t.Errorf("ChangeDirectory(tfs, sessMgr, %q, %v) error = %v, want %v", sessionID, []string{in}, gotErr, ErrFileNotFound)
 		}
 	})
 
@@ -151,11 +151,11 @@ func TestChangeDirectory_error(t *testing.T) {
 		if gotErr == nil {
 			t.Fatalf("ChangeDirectory(tfs, sessMgr, %q, %v) error = nil, want error", sessionID, []string{in})
 		}
-		if want := ErrNotDirectory; gotErr != want {
-			t.Errorf("ChangeDirectory(tfs, sessMgr, %q, %v) error = %v, want %v", sessionID, []string{in}, gotErr, want)
+		if !errors.Is(gotErr, ErrNotDirectory) {
+			t.Errorf("ChangeDirectory(tfs, sessMgr, %q, %v) error = %v, want %v", sessionID, []string{in}, gotErr, ErrNotDirectory)
 		}
-		if want := "test-repo.md"; gotContext != want {
-			t.Errorf("ChangeDirectory(tfs, sessMgr, %q, %v) context = %q, want %q", sessionID, []string{in}, gotContext, want)
+		if wantContext := "test-repo.md"; gotContext != wantContext {
+			t.Errorf("ChangeDirectory(tfs, sessMgr, %q, %v) context = %q, want %q", sessionID, []string{in}, gotContext, wantContext)
 		}
 	})
 }
@@ -373,11 +373,11 @@ func TestListDirectory_error(t *testing.T) {
 		if gotErr == nil {
 			t.Fatalf("ListDirectory(tfs, sessMgr, %q, %v) error = nil, want error", sessionID, []string{"nonexistent"})
 		}
-		if want := ErrFileNotFound; gotErr != want {
-			t.Errorf("ListDirectory(tfs, sessMgr, %q, %v) error = %v, want %v", sessionID, []string{"nonexistent"}, gotErr, want)
+		if !errors.Is(gotErr, ErrFileNotFound) {
+			t.Errorf("ListDirectory(tfs, sessMgr, %q, %v) error = %v, want %v", sessionID, []string{"nonexistent"}, gotErr, ErrFileNotFound)
 		}
-		if want := "nonexistent"; gotContext != want {
-			t.Errorf("ListDirectory(tfs, sessMgr, %q, %v) context = %q, want %q", sessionID, []string{"nonexistent"}, gotContext, want)
+		if wantContext := "nonexistent"; gotContext != wantContext {
+			t.Errorf("ListDirectory(tfs, sessMgr, %q, %v) context = %q, want %q", sessionID, []string{"nonexistent"}, gotContext, wantContext)
 		}
 	})
 
@@ -386,8 +386,8 @@ func TestListDirectory_error(t *testing.T) {
 		if gotErr == nil {
 			t.Fatalf("ListDirectory(tfs, sessMgr, %q, %v) error = nil, want error", sessionID, []string{"home", "zorcal"})
 		}
-		if want := ErrTooManyArguments; gotErr != want {
-			t.Errorf("ListDirectory(tfs, sessMgr, %q, %v) error = %v, want %v", sessionID, []string{"home", "zorcal"}, gotErr, want)
+		if !errors.Is(gotErr, ErrTooManyArguments) {
+			t.Errorf("ListDirectory(tfs, sessMgr, %q, %v) error = %v, want %v", sessionID, []string{"home", "zorcal"}, gotErr, ErrTooManyArguments)
 		}
 	})
 
@@ -396,8 +396,8 @@ func TestListDirectory_error(t *testing.T) {
 		if gotErr == nil {
 			t.Fatalf("ListDirectory(tfs, sessMgr, %q, %v) error = nil, want error", sessionID, []string{"-l", "home", "zorcal"})
 		}
-		if want := ErrTooManyArguments; gotErr != want {
-			t.Errorf("ListDirectory(tfs, sessMgr, %q, %v) error = %v, want %v", sessionID, []string{"-l", "home", "zorcal"}, gotErr, want)
+		if !errors.Is(gotErr, ErrTooManyArguments) {
+			t.Errorf("ListDirectory(tfs, sessMgr, %q, %v) error = %v, want %v", sessionID, []string{"-l", "home", "zorcal"}, gotErr, ErrTooManyArguments)
 		}
 	})
 
@@ -505,11 +505,11 @@ func TestCatFile_error(t *testing.T) {
 		if gotErr == nil {
 			t.Fatalf("CatFile(tfs, sessMgr, %q, %v) error = nil, want error", sessionID, []string{"nonexistent.txt"})
 		}
-		if want := ErrFileNotFound; gotErr != want {
-			t.Errorf("CatFile(tfs, sessMgr, %q, %v) error = %v, want %v", sessionID, []string{"nonexistent.txt"}, gotErr, want)
+		if !errors.Is(gotErr, ErrFileNotFound) {
+			t.Errorf("CatFile(tfs, sessMgr, %q, %v) error = %v, want %v", sessionID, []string{"nonexistent.txt"}, gotErr, ErrFileNotFound)
 		}
-		if want := "nonexistent.txt"; gotContext != want {
-			t.Errorf("CatFile(tfs, sessMgr, %q, %v) context = %q, want %q", sessionID, []string{"nonexistent.txt"}, gotContext, want)
+		if wantContext := "nonexistent.txt"; gotContext != wantContext {
+			t.Errorf("CatFile(tfs, sessMgr, %q, %v) context = %q, want %q", sessionID, []string{"nonexistent.txt"}, gotContext, wantContext)
 		}
 	})
 
@@ -520,11 +520,11 @@ func TestCatFile_error(t *testing.T) {
 		if gotErr == nil {
 			t.Fatalf("CatFile(tfs, sessMgr, %q, %v) error = nil, want error", sessionID, []string{"home"})
 		}
-		if want := ErrIsDirectory; gotErr != want {
-			t.Errorf("CatFile(tfs, sessMgr, %q, %v) error = %v, want %v", sessionID, []string{"home"}, gotErr, want)
+		if !errors.Is(gotErr, ErrIsDirectory) {
+			t.Errorf("CatFile(tfs, sessMgr, %q, %v) error = %v, want %v", sessionID, []string{"home"}, gotErr, ErrIsDirectory)
 		}
-		if want := "home"; gotContext != want {
-			t.Errorf("CatFile(tfs, sessMgr, %q, %v) context = %q, want %q", sessionID, []string{"home"}, gotContext, want)
+		if wantContext := "home"; gotContext != wantContext {
+			t.Errorf("CatFile(tfs, sessMgr, %q, %v) context = %q, want %q", sessionID, []string{"home"}, gotContext, wantContext)
 		}
 	})
 
@@ -533,8 +533,8 @@ func TestCatFile_error(t *testing.T) {
 		if gotErr == nil {
 			t.Fatalf("CatFile(tfs, sessMgr, %q, %v) error = nil, want error", sessionID, []string{})
 		}
-		if want := ErrMissingArgument; gotErr != want {
-			t.Errorf("CatFile(tfs, sessMgr, %q, %v) error = %v, want %v", sessionID, []string{}, gotErr, want)
+		if !errors.Is(gotErr, ErrMissingArgument) {
+			t.Errorf("CatFile(tfs, sessMgr, %q, %v) error = %v, want %v", sessionID, []string{}, gotErr, ErrMissingArgument)
 		}
 	})
 }
