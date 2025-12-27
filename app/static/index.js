@@ -7,6 +7,49 @@ document.addEventListener("DOMContentLoaded", () => {
 	const input = document.getElementById("command-input");
 	const inputText = document.getElementById("input-text");
 	const prompt = document.getElementById("prompt");
+	
+	// Command history navigation
+	let commandHistory = [];
+	let historyIndex = -1;
+	
+	// Fetch command history from server
+	async function fetchCommandHistory() {
+		try {
+			const response = await fetch('/history');
+			if (response.ok) {
+				commandHistory = await response.json();
+				historyIndex = commandHistory.length; // Start at end of history
+			}
+		} catch (error) {
+			console.error('Failed to fetch command history:', error);
+		}
+	}
+	
+	// Navigate command history
+	function navigateHistory(direction) {
+		if (commandHistory.length === 0) return;
+		
+		if (direction === 'up') {
+			if (historyIndex > 0) {
+				historyIndex--;
+				input.value = commandHistory[historyIndex];
+				inputText.textContent = commandHistory[historyIndex];
+			}
+		} else if (direction === 'down') {
+			if (historyIndex < commandHistory.length - 1) {
+				historyIndex++;
+				input.value = commandHistory[historyIndex];
+				inputText.textContent = commandHistory[historyIndex];
+			} else if (historyIndex === commandHistory.length - 1) {
+				historyIndex = commandHistory.length;
+				input.value = "";
+				inputText.textContent = "";
+			}
+		}
+	}
+	
+	// Initial fetch of command history
+	fetchCommandHistory();
 
 	// Blink cursor
 	setInterval(() => {
@@ -25,6 +68,17 @@ document.addEventListener("DOMContentLoaded", () => {
 			input.value = "clear";
 			inputText.textContent = "clear";
 			htmx.trigger("#command-form", "submit");
+		}
+		
+		// Command history navigation with arrow keys
+		if (e.key === "ArrowUp") {
+			e.preventDefault();
+			navigateHistory('up');
+		}
+		
+		if (e.key === "ArrowDown") {
+			e.preventDefault();
+			navigateHistory('down');
 		}
 		
 		// Prevent default tab behavior (common in terminals for autocomplete)
@@ -50,6 +104,9 @@ document.addEventListener("DOMContentLoaded", () => {
 		document.getElementById('command-input').focus();
 		document.getElementById('input-text').textContent = '';
 		document.getElementById('command-history').scrollTop = document.getElementById('command-history').scrollHeight;
+		
+		// Refresh command history after submission
+		fetchCommandHistory();
 	};
 
 	window.handleCommandError = function(event) {

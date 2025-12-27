@@ -42,6 +42,7 @@ func NewHandler(log *slog.Logger, appVersion string, disableStaticCache bool) (h
 	r.SetNotFoundHandler(notFoundHandler(), htmlContentTypeMiddleware())
 	r.Handle("/static/", staticHandler(static, appVersion, disableStaticCache))
 	r.Handle("POST /command", commandHandler(sessMgr, tfs), htmxMiddleware(), htmlContentTypeMiddleware())
+	r.Handle("GET /history", historyHandler(sessMgr))
 	r.Handle("GET /{$}", indexHandler(log, sessMgr), htmlContentTypeMiddleware())
 
 	return r, nil

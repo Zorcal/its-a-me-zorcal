@@ -1,6 +1,7 @@
 package app
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"html/template"
@@ -340,4 +341,27 @@ func runUnknownCommand(w http.ResponseWriter, sess *session.Session[terminalSess
 	}
 
 	return tmpl.Execute(w, data)
+}
+
+func historyHandler(sessMgr *session.Manager[terminalSessionEntry]) httprouter.Handler {
+	return func(w http.ResponseWriter, r *http.Request) error {
+		sessionID := getSessionID(r)
+		sess := sessMgr.GetOrCreateSession(sessionID)
+
+		history := sess.History()
+
+		var commands []string
+		for _, entry := range history {
+			if strings.TrimSpace(entry.Command) != "" {
+				commands = append(commands, entry.Command)
+			}
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		if err := json.NewEncoder(w).Encode(commands); err != nil {
+			return fmt.Errorf("json encode command history: %w", err)
+		}
+
+		return nil
+	}
 }
