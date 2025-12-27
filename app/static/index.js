@@ -162,6 +162,7 @@ document.addEventListener("DOMContentLoaded", () => {
 	// HTMX event handlers
 	window.handleCommandSubmit = () => {
 		const form = document.getElementById("command-form");
+		const submittedCommand = actualInputValue.trim();
 
 		// Ensure we submit the actual command without cursor
 		input.value = actualInputValue;
@@ -177,8 +178,9 @@ document.addEventListener("DOMContentLoaded", () => {
 		// Update display to show cursor at beginning
 		updateDisplay();
 
-		// Refresh command history after submission
-		fetchCommandHistory();
+		if (submittedCommand !== "") {
+			fetchCommandHistory();
+		}
 	};
 
 	window.handleCommandError = (event) => {
