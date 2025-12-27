@@ -13,34 +13,10 @@ document.addEventListener("DOMContentLoaded", () => {
 
 	// Text-based cursor management
 	let actualInputValue = ""; // The real command without the cursor
+	let suppressDisplayUpdate = false; // Flag to prevent display updates
 
 	// Track locally stored newline commands for later server sync
 	let pendingNewlines = 0;
-	
-	// Load any pending newlines from previous session
-	const storedNewlines = localStorage.getItem('pendingNewlines');
-	if (storedNewlines) {
-		pendingNewlines = parseInt(storedNewlines) || 0;
-		localStorage.removeItem('pendingNewlines');
-		
-		// Send stored newlines immediately if any exist
-		if (pendingNewlines > 0) {
-			const params = new URLSearchParams();
-			params.append("count", pendingNewlines);
-			fetch("/newline", {
-				method: "POST",
-				headers: {
-					"Content-Type": "application/x-www-form-urlencoded",
-				},
-				body: params,
-			}).finally(() => {
-				pendingNewlines = 0;
-				// Refresh the page to show the newlines
-				window.location.reload();
-			});
-			return; // Don't continue with normal page initialization
-		}
-	}
 
 	// Fetch command history from server
 	async function fetchCommandHistory() {
@@ -101,6 +77,8 @@ document.addEventListener("DOMContentLoaded", () => {
 
 	// Update display with cursor at current position
 	function updateDisplay() {
+		if (suppressDisplayUpdate) return;
+		
 		const cursorPos = input.selectionStart || 0;
 		const beforeCursor = actualInputValue.substring(0, cursorPos);
 		const afterCursor = actualInputValue.substring(cursorPos);
@@ -203,8 +181,11 @@ document.addEventListener("DOMContentLoaded", () => {
 
 		if (e.ctrlKey && e.key === "l") {
 			e.preventDefault();
+			// Suppress display updates to prevent flicker
+			suppressDisplayUpdate = true;
+			// Set the command but don't show it in the UI
+			actualInputValue = "clear";
 			input.value = "clear";
-			inputText.textContent = "clear";
 			htmx.trigger("#command-form", "submit");
 		}
 
@@ -262,7 +243,8 @@ document.addEventListener("DOMContentLoaded", () => {
 		document.getElementById("command-history").scrollTop =
 			document.getElementById("command-history").scrollHeight;
 
-		// Update display to show cursor at beginning
+		// Re-enable display updates and update display to show cursor at beginning
+		suppressDisplayUpdate = false;
 		updateDisplay();
 
 		// Refresh command history immediately - the command response has already been processed
@@ -292,6 +274,30 @@ document.addEventListener("DOMContentLoaded", () => {
 			localStorage.setItem('pendingNewlines', pendingNewlines.toString());
 		}
 	});
+
+	// Handle any pending newlines from previous session (after all event listeners are set up)
+	const storedNewlines = localStorage.getItem('pendingNewlines');
+	if (storedNewlines) {
+		pendingNewlines = parseInt(storedNewlines) || 0;
+		localStorage.removeItem('pendingNewlines');
+		
+		// Send stored newlines immediately if any exist
+		if (pendingNewlines > 0) {
+			const params = new URLSearchParams();
+			params.append("count", pendingNewlines);
+			fetch("/newline", {
+				method: "POST",
+				headers: {
+					"Content-Type": "application/x-www-form-urlencoded",
+				},
+				body: params,
+			}).finally(() => {
+				pendingNewlines = 0;
+				// Refresh the page to show the newlines
+				window.location.reload();
+			});
+		}
+	}
 });
 
 function checkScreenSize() {
