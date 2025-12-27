@@ -245,10 +245,8 @@ document.addEventListener("DOMContentLoaded", () => {
 		// Update display to show cursor at beginning
 		updateDisplay();
 
-		// Refresh command history after a small delay to ensure server has processed the command
-		setTimeout(() => {
-			fetchCommandHistory();
-		}, 100);
+		// Refresh command history immediately - the command response has already been processed
+		fetchCommandHistory();
 	};
 
 	window.handleCommandError = (event) => {
