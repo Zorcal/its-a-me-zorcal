@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"io/fs"
+	"path"
 	"strings"
 
 	"github.com/zorcal/its-a-me-zorcal/core/termfs"
@@ -302,55 +303,28 @@ func resolvePath(currDir, targetPath string) string {
 		return currDir
 	}
 
-	var basePath string
-	var isAbsolute bool
-
-	// Determine if path is absolute and extract the path to resolve
-	if after, ok := strings.CutPrefix(targetPath, "/"); ok {
-		basePath = "" // Start from root for absolute paths
-		targetPath = after
-		isAbsolute = true
-	} else {
-		basePath = currDir // Start from current directory for relative paths
-		isAbsolute = false
+	isAbsPath := strings.HasPrefix(targetPath, "/")
+	if isAbsPath {
+		cleaned := path.Clean(targetPath)
+		if cleaned == "/" {
+			return ""
+		}
+		return strings.TrimPrefix(cleaned, "/")
 	}
 
-	// Handle empty path after removing leading slash (means root)
-	if isAbsolute && targetPath == "" {
+	var fullPath string
+	if currDir == "" {
+		fullPath = "/" + targetPath
+	} else {
+		fullPath = "/" + currDir + "/" + targetPath
+	}
+
+	cleaned := path.Clean(fullPath)
+	if cleaned == "/" {
 		return ""
 	}
 
-	components := strings.Split(targetPath, "/")
-
-	var pathComponents []string
-	if basePath != "" && basePath != "." {
-		pathComponents = strings.Split(basePath, "/")
-	}
-
-	for _, component := range components {
-		if component == "" || component == "." {
-			continue
-		}
-
-		if component == ".." {
-			// Go up one directory.
-			// If we're already at root, stay at root.
-			if len(pathComponents) > 0 {
-				pathComponents = pathComponents[:len(pathComponents)-1]
-			}
-			continue
-		}
-
-		// Normal directory component
-		pathComponents = append(pathComponents, component)
-	}
-
-	// Join components back into a path
-	if len(pathComponents) == 0 {
-		return "" // root
-	}
-
-	return strings.Join(pathComponents, "/")
+	return strings.TrimPrefix(cleaned, "/")
 }
 
 // isValidPathArgument validates that an argument looks like a reasonable path
