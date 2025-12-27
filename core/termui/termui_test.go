@@ -102,7 +102,6 @@ func TestChangeDirectory(t *testing.T) {
 			wantDir:    "home/guest",
 		},
 	}
-
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			sessMgr.SetCurrentDir(sessionID, tt.startDir)
@@ -422,7 +421,7 @@ func TestListDirectory_error(t *testing.T) {
 				args: []string{"path\nwith\nnewline"},
 			},
 			{
-				name: "path with carriage return", 
+				name: "path with carriage return",
 				args: []string{"path\rwith\rcarriage"},
 			},
 			{
@@ -555,7 +554,6 @@ func TestResolvePath(t *testing.T) {
 			{".", "..", ""},
 			{"home/zorcal/projects", "../..", "home"},
 		}
-
 		for _, tt := range tests {
 			got := resolvePath(tt.currentDir, tt.targetPath)
 			if got != tt.want {
@@ -574,7 +572,6 @@ func TestResolvePath(t *testing.T) {
 			{"home/zorcal", "/home", "home"},
 			{"home/zorcal", "/home/guest", "home/guest"},
 		}
-
 		for _, tt := range tests {
 			got := resolvePath(tt.currentDir, tt.targetPath)
 			if got != tt.want {
@@ -594,7 +591,6 @@ func TestResolvePath(t *testing.T) {
 			{".", "home", "home"},
 			{"home/zorcal", "projects", "home/zorcal/projects"},
 		}
-
 		for _, tt := range tests {
 			got := resolvePath(tt.currentDir, tt.targetPath)
 			if got != tt.want {
@@ -621,7 +617,6 @@ func TestResolvePath(t *testing.T) {
 			{"home/zorcal/projects", "..", "home/zorcal"},
 			{"", "/home/zorcal/..", "home"},
 		}
-
 		for _, tt := range tests {
 			got := resolvePath(tt.currentDir, tt.targetPath)
 			if got != tt.want {
@@ -686,7 +681,6 @@ func TestOpenFile(t *testing.T) {
 			wantURL:  "https://github.com/test/test-repo",
 		},
 	}
-
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			sessMgr.SetCurrentDir(sessionID, tt.startDir)
@@ -742,7 +736,6 @@ func TestOpenFile_error(t *testing.T) {
 			wantContext: "",
 		},
 	}
-
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			sessMgr.SetCurrentDir(sessionID, tt.startDir)

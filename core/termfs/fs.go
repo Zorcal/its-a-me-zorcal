@@ -46,6 +46,22 @@ func setupFS(fs *FS, repos []github.Repository) {
 		fs.AddFile(fmt.Sprintf("home/zorcal/projects/%s.md", repo.Name), []byte(content))
 	}
 
+	// Welcome message
+	welcomeMessage := `Welcome to Zorcal's Terminal Interface!
+
+This is a web-based terminal emulator that simulates a Unix-like environment.
+You can navigate the filesystem, view files, and execute commands just like
+in a real terminal.
+
+Try exploring with 'ls' and 'cd projects' to see my work!
+Run 'help' for a full list of available commands.
+
+Happy exploring!
+
+- Zorcal`
+
+	fs.AddFile("home/guest/welcome.txt", []byte(welcomeMessage))
+
 	// Easter egg
 	secretMessage := `🎉 Congratulations! You found the secret file! 🎉
 
@@ -57,7 +73,7 @@ it both exists and doesn't exist at the same time.
 
 Keep exploring! There might be more secrets hidden in the code...
 
-- The Developer Who Codes in the Shadows 👤`
+- Zorcal`
 
 	fs.AddFile("home/zorcal/.secret.txt", []byte(secretMessage))
 }

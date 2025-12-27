@@ -181,13 +181,7 @@ func TestFS_readDir(t *testing.T) {
 			path:      "home/zorcal/projects",
 			wantFiles: []string{"repo1.md", "repo2.md"},
 		},
-		{
-			name:      "empty directory",
-			path:      "home/guest",
-			wantFiles: []string{},
-		},
 	}
-
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			f, err := tfs.Open(tt.path)
@@ -356,6 +350,7 @@ func TestFS_walkDir(t *testing.T) {
 		".",
 		"home",
 		"home/guest",
+		"home/guest/welcome.txt",
 		"home/zorcal",
 		"home/zorcal/.secret.txt",
 		"home/zorcal/projects",
