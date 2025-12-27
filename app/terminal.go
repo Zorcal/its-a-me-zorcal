@@ -39,6 +39,19 @@ func commandHandler(sessAdapter *sessionAdapter, tfs *termfs.FS) httprouter.Hand
 		sessionID := getSessionID(r)
 		sess := sessAdapter.mgr.GetOrCreateSession(sessionID)
 
+		// Handle any pending newlines first (sent as a parameter)
+		if newlinesStr := r.FormValue("newlines"); newlinesStr != "" {
+			if count, err := strconv.Atoi(newlinesStr); err == nil && count > 0 {
+				currDir := sessAdapter.GetCurrentDir(sessionID)
+				currPrompt := termui.GeneratePrompt(currDir)
+				for range count {
+					entry := newTerminalSessionEntry("", "", false)
+					entry.Prompt = currPrompt
+					sess.AddEntry(entry)
+				}
+			}
+		}
+
 		cmdLine := strings.TrimSpace(r.FormValue("command"))
 
 		// Capture current directory and prompt before executing any command.

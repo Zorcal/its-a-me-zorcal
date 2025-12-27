@@ -150,34 +150,22 @@ document.addEventListener("DOMContentLoaded", () => {
 				// Focus back on input
 				input.focus();
 			} else {
-				// Send any pending newlines first as a separate request
+				// Include any pending newlines as a parameter with the command
+				input.value = actualInputValue;
 				if (pendingNewlines > 0) {
-					e.preventDefault();
-					e.stopPropagation();
-					
-					const newlineParams = new URLSearchParams();
-					newlineParams.append("count", pendingNewlines);
-					fetch("/newline", {
-						method: "POST",
-						headers: {
-							"Content-Type": "application/x-www-form-urlencoded",
-						},
-						body: newlineParams,
-					}).then(() => {
-						// After newlines are sent, submit the real command
-						pendingNewlines = 0;
-						input.value = actualInputValue;
-						htmx.trigger("#command-form", "submit");
-					}).catch(() => {
-						// If newline fails, still submit the command
-						pendingNewlines = 0;
-						input.value = actualInputValue;
-						htmx.trigger("#command-form", "submit");
-					});
-				} else {
-					// No pending newlines, let the normal command proceed
-					input.value = actualInputValue;
+					// Add hidden input for newlines
+					const form = document.getElementById("command-form");
+					let newlineInput = form.querySelector('input[name="newlines"]');
+					if (!newlineInput) {
+						newlineInput = document.createElement("input");
+						newlineInput.type = "hidden";
+						newlineInput.name = "newlines";
+						form.appendChild(newlineInput);
+					}
+					newlineInput.value = pendingNewlines;
+					pendingNewlines = 0;
 				}
+				// Let the normal command proceed (with newlines included)
 			}
 		},
 		true,
@@ -237,6 +225,13 @@ document.addEventListener("DOMContentLoaded", () => {
 		// Reset everything after submission (only called for successful server requests)
 		actualInputValue = "";
 		form.reset();
+		
+		// Remove any hidden newline input
+		const newlineInput = form.querySelector('input[name="newlines"]');
+		if (newlineInput) {
+			newlineInput.remove();
+		}
+		
 		document.getElementById("command-input").focus();
 		document.getElementById("input-text").textContent = "";
 		document.getElementById("command-history").scrollTop =
