@@ -11,6 +11,8 @@ RUN go build -v -ldflags="-X 'main.appVersion=${BUILD_VERSION}'" -o /run-app ./c
 
 FROM debian:bookworm
 
+RUN apt-get update && apt-get install -y ca-certificates && rm -rf /var/lib/apt/lists/*
+
 COPY --from=builder /run-app /usr/local/bin/
 
 # Listen on all interfaces in production, not just localhost
