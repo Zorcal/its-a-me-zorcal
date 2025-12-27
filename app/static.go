@@ -43,8 +43,6 @@ func staticHandler(static fs.FS, appVersion string, disableCache bool) httproute
 
 func calcStaticFileMaxAge(filePath string) time.Duration {
 	switch {
-	case strings.HasSuffix(filePath, ".mp3"):
-		return 30 * 24 * time.Hour // 30 days for audio files
 	case strings.HasSuffix(filePath, ".css") || strings.HasSuffix(filePath, ".js"):
 		return 7 * 24 * time.Hour // 7 days for CSS/JS
 	default:
