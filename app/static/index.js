@@ -78,7 +78,7 @@ document.addEventListener("DOMContentLoaded", () => {
 	// Update display with cursor at current position
 	function updateDisplay() {
 		if (suppressDisplayUpdate) return;
-		
+
 		const cursorPos = input.selectionStart || 0;
 		const beforeCursor = actualInputValue.substring(0, cursorPos);
 		const afterCursor = actualInputValue.substring(cursorPos);
@@ -231,13 +231,13 @@ document.addEventListener("DOMContentLoaded", () => {
 		// Reset everything after submission (only called for successful server requests)
 		actualInputValue = "";
 		form.reset();
-		
+
 		// Remove any hidden newline input
 		const newlineInput = form.querySelector('input[name="newlines"]');
 		if (newlineInput) {
 			newlineInput.remove();
 		}
-		
+
 		document.getElementById("command-input").focus();
 		document.getElementById("input-text").textContent = "";
 		document.getElementById("command-history").scrollTop =
@@ -271,16 +271,16 @@ document.addEventListener("DOMContentLoaded", () => {
 	window.addEventListener("beforeunload", () => {
 		if (pendingNewlines > 0) {
 			// Store in localStorage to handle on next page load
-			localStorage.setItem('pendingNewlines', pendingNewlines.toString());
+			localStorage.setItem("pendingNewlines", pendingNewlines.toString());
 		}
 	});
 
 	// Handle any pending newlines from previous session (after all event listeners are set up)
-	const storedNewlines = localStorage.getItem('pendingNewlines');
+	const storedNewlines = localStorage.getItem("pendingNewlines");
 	if (storedNewlines) {
 		pendingNewlines = parseInt(storedNewlines) || 0;
-		localStorage.removeItem('pendingNewlines');
-		
+		localStorage.removeItem("pendingNewlines");
+
 		// Send stored newlines immediately if any exist
 		if (pendingNewlines > 0) {
 			const params = new URLSearchParams();
