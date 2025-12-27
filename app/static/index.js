@@ -152,6 +152,9 @@ document.addEventListener("DOMContentLoaded", () => {
 			} else {
 				// Send any pending newlines first as a separate request
 				if (pendingNewlines > 0) {
+					e.preventDefault();
+					e.stopPropagation();
+					
 					const newlineParams = new URLSearchParams();
 					newlineParams.append("count", pendingNewlines);
 					fetch("/newline", {
@@ -160,11 +163,21 @@ document.addEventListener("DOMContentLoaded", () => {
 							"Content-Type": "application/x-www-form-urlencoded",
 						},
 						body: newlineParams,
+					}).then(() => {
+						// After newlines are sent, submit the real command
+						pendingNewlines = 0;
+						input.value = actualInputValue;
+						htmx.trigger("#command-form", "submit");
+					}).catch(() => {
+						// If newline fails, still submit the command
+						pendingNewlines = 0;
+						input.value = actualInputValue;
+						htmx.trigger("#command-form", "submit");
 					});
-					pendingNewlines = 0;
+				} else {
+					// No pending newlines, let the normal command proceed
+					input.value = actualInputValue;
 				}
-				// Then let the normal command proceed
-				input.value = actualInputValue;
 			}
 		},
 		true,
@@ -232,8 +245,10 @@ document.addEventListener("DOMContentLoaded", () => {
 		// Update display to show cursor at beginning
 		updateDisplay();
 
-		// Refresh command history (only called for non-empty commands that reached server)
-		fetchCommandHistory();
+		// Refresh command history after a small delay to ensure server has processed the command
+		setTimeout(() => {
+			fetchCommandHistory();
+		}, 100);
 	};
 
 	window.handleCommandError = (event) => {
