@@ -12,7 +12,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/zorcal/its-a-me-zorcal/core/termui"
+	"github.com/zorcal/its-a-me-zorcal/internal/termui"
 	"github.com/zorcal/its-a-me-zorcal/pkg/httprouter"
 	"github.com/zorcal/its-a-me-zorcal/pkg/session"
 	"github.com/zorcal/its-a-me-zorcal/pkg/slogctx"

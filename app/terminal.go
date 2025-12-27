@@ -8,8 +8,8 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/zorcal/its-a-me-zorcal/core/termfs"
-	"github.com/zorcal/its-a-me-zorcal/core/termui"
+	"github.com/zorcal/its-a-me-zorcal/internal/termfs"
+	"github.com/zorcal/its-a-me-zorcal/internal/termui"
 	"github.com/zorcal/its-a-me-zorcal/pkg/httprouter"
 	"github.com/zorcal/its-a-me-zorcal/pkg/session"
 )

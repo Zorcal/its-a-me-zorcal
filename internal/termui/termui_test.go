@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/zorcal/its-a-me-zorcal/core/termfs"
+	"github.com/zorcal/its-a-me-zorcal/internal/termfs"
 	"github.com/zorcal/its-a-me-zorcal/pkg/github"
 )
 

@@ -6,7 +6,7 @@ import (
 	"log/slog"
 	"net/http"
 
-	"github.com/zorcal/its-a-me-zorcal/core/termui"
+	"github.com/zorcal/its-a-me-zorcal/internal/termui"
 	"github.com/zorcal/its-a-me-zorcal/pkg/github"
 	"github.com/zorcal/its-a-me-zorcal/pkg/httprouter"
 	"github.com/zorcal/its-a-me-zorcal/pkg/session"
