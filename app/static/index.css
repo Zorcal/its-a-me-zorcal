@@ -129,11 +129,6 @@ body::before {
   z-index: 10;
 }
 
-#cursor {
-  color: #00ff00;
-  text-shadow: 0 0 8px #00ff00;
-  font-weight: bold;
-}
 
 /* Output styling */
 .welcome {
@@ -304,9 +299,6 @@ body::before {
 }
 
 /* Hover effects for interactive elements */
-#terminal:hover #cursor {
-  text-shadow: 0 0 15px #00ff00;
-}
 
 /* Screen size warning */
 #screen-size-warning {

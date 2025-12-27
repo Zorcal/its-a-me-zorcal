@@ -1,86 +1,148 @@
 document.addEventListener("DOMContentLoaded", () => {
 	// Check screen size and show warning if needed
 	checkScreenSize();
-	window.addEventListener('resize', checkScreenSize);
+	window.addEventListener("resize", checkScreenSize);
 
-	const cursor = document.getElementById("cursor");
 	const input = document.getElementById("command-input");
 	const inputText = document.getElementById("input-text");
 	const prompt = document.getElementById("prompt");
-	
+
 	// Command history navigation
 	let commandHistory = [];
 	let historyIndex = -1;
-	
+
+	// Text-based cursor management
+	let actualInputValue = ""; // The real command without the cursor
+
 	// Fetch command history from server
 	async function fetchCommandHistory() {
 		try {
-			const response = await fetch('/history');
+			const response = await fetch("/history");
 			if (response.ok) {
-				commandHistory = await response.json();
+				const data = await response.json();
+				commandHistory = Array.isArray(data) ? data : [];
 				historyIndex = commandHistory.length; // Start at end of history
+			} else {
+				console.warn("Failed to fetch command history, using empty array");
+				commandHistory = [];
+				historyIndex = 0;
 			}
 		} catch (error) {
-			console.error('Failed to fetch command history:', error);
+			console.error("Failed to fetch command history:", error);
+			commandHistory = []; // Always ensure it's an array
+			historyIndex = 0;
 		}
 	}
-	
+
 	// Navigate command history
 	function navigateHistory(direction) {
-		if (commandHistory.length === 0) return;
-		
-		if (direction === 'up') {
+		if (!commandHistory || commandHistory.length === 0) return;
+
+		if (direction === "up") {
 			if (historyIndex > 0) {
 				historyIndex--;
-				input.value = commandHistory[historyIndex];
-				inputText.textContent = commandHistory[historyIndex];
+				const newValue = commandHistory[historyIndex];
+				actualInputValue = newValue;
+				// Move cursor to end of command first
+				input.value = actualInputValue;
+				input.setSelectionRange(newValue.length, newValue.length);
+				updateDisplay();
 			}
-		} else if (direction === 'down') {
+		} else if (direction === "down") {
 			if (historyIndex < commandHistory.length - 1) {
 				historyIndex++;
-				input.value = commandHistory[historyIndex];
-				inputText.textContent = commandHistory[historyIndex];
+				const newValue = commandHistory[historyIndex];
+				actualInputValue = newValue;
+				// Move cursor to end of command first
+				input.value = actualInputValue;
+				input.setSelectionRange(newValue.length, newValue.length);
+				updateDisplay();
 			} else if (historyIndex === commandHistory.length - 1) {
 				historyIndex = commandHistory.length;
-				input.value = "";
-				inputText.textContent = "";
+				actualInputValue = "";
+				// Reset cursor to beginning for empty input
+				input.value = actualInputValue;
+				input.setSelectionRange(0, 0);
+				updateDisplay();
 			}
 		}
 	}
-	
+
 	// Initial fetch of command history
 	fetchCommandHistory();
 
-	// Blink cursor
-	setInterval(() => {
-		cursor.style.opacity = cursor.style.opacity === "0" ? "1" : "0";
-	}, 500);
+	// Update display with cursor at current position
+	function updateDisplay() {
+		const cursorPos = input.selectionStart || 0;
+		const beforeCursor = actualInputValue.substring(0, cursorPos);
+		const afterCursor = actualInputValue.substring(cursorPos);
 
-	// Mirror input text
+		// Direct assignment for fastest update
+		inputText.textContent = beforeCursor + "│" + afterCursor;
+
+		// Only sync input value if it's different (avoid unnecessary DOM updates)
+		if (input.value !== actualInputValue) {
+			const savedPos = input.selectionStart;
+			input.value = actualInputValue;
+			input.setSelectionRange(savedPos, savedPos);
+		}
+	}
+
 	input.addEventListener("input", () => {
-		inputText.textContent = input.value;
+		actualInputValue = input.value;
+		updateDisplay();
 	});
+
+	// Update display when cursor moves - optimized for instant response
+	input.addEventListener("keydown", (e) => {
+		if (
+			e.key === "ArrowLeft" ||
+			e.key === "ArrowRight" ||
+			e.key === "Home" ||
+			e.key === "End"
+		) {
+			requestAnimationFrame(updateDisplay);
+		}
+	});
+
+	input.addEventListener("click", updateDisplay);
+	input.addEventListener("mouseup", updateDisplay);
+	input.addEventListener("selectionchange", updateDisplay);
+
+	// Initial display
+	updateDisplay();
 
 	// Handle keyboard shortcuts
 	document.addEventListener("keydown", (e) => {
+		// Only apply special handling when the input field is focused
+		if (document.activeElement !== input) return;
+
 		if (e.ctrlKey && e.key === "l") {
 			e.preventDefault();
 			input.value = "clear";
 			inputText.textContent = "clear";
 			htmx.trigger("#command-form", "submit");
 		}
-		
-		// Command history navigation with arrow keys
+
+		if (e.ctrlKey && e.key === "c") {
+			e.preventDefault();
+			// Clear current input
+			actualInputValue = "";
+			input.value = "";
+			input.setSelectionRange(0, 0);
+			updateDisplay();
+		}
+
+		// Command history navigation with up/down arrow keys
 		if (e.key === "ArrowUp") {
 			e.preventDefault();
-			navigateHistory('up');
+			navigateHistory("up");
 		}
-		
 		if (e.key === "ArrowDown") {
 			e.preventDefault();
-			navigateHistory('down');
+			navigateHistory("down");
 		}
-		
+
 		// Prevent default tab behavior (common in terminals for autocomplete)
 		if (e.key === "Tab") {
 			e.preventDefault();
@@ -98,39 +160,51 @@ document.addEventListener("DOMContentLoaded", () => {
 	});
 
 	// HTMX event handlers
-	window.handleCommandSubmit = function() {
-		const form = document.getElementById('command-form');
+	window.handleCommandSubmit = () => {
+		const form = document.getElementById("command-form");
+
+		// Ensure we submit the actual command without cursor
+		input.value = actualInputValue;
+
+		// Reset everything after submission
+		actualInputValue = "";
 		form.reset();
-		document.getElementById('command-input').focus();
-		document.getElementById('input-text').textContent = '';
-		document.getElementById('command-history').scrollTop = document.getElementById('command-history').scrollHeight;
-		
+		document.getElementById("command-input").focus();
+		document.getElementById("input-text").textContent = "";
+		document.getElementById("command-history").scrollTop =
+			document.getElementById("command-history").scrollHeight;
+
+		// Update display to show cursor at beginning
+		updateDisplay();
+
 		// Refresh command history after submission
 		fetchCommandHistory();
 	};
 
-	window.handleCommandError = function(event) {
-		document.getElementById('command-output').innerHTML += event.detail.xhr.responseText;
-		document.getElementById('command-history').scrollTop = document.getElementById('command-history').scrollHeight;
+	window.handleCommandError = (event) => {
+		document.getElementById("command-output").innerHTML +=
+			event.detail.xhr.responseText;
+		document.getElementById("command-history").scrollTop =
+			document.getElementById("command-history").scrollHeight;
 	};
 
 	// Handle open command response - check for X-Open-URL header and open new tab
-	document.body.addEventListener('htmx:afterRequest', function(event) {
+	document.body.addEventListener("htmx:afterRequest", (event) => {
 		const xhr = event.detail.xhr;
-		const openUrl = xhr.getResponseHeader('X-Open-URL');
+		const openUrl = xhr.getResponseHeader("X-Open-URL");
 		if (openUrl) {
-			window.open(openUrl, '_blank');
+			window.open(openUrl, "_blank");
 		}
 	});
 });
 
 function checkScreenSize() {
 	const isSmallScreen = window.innerWidth <= 768 || window.innerHeight <= 600;
-	let warning = document.getElementById('screen-size-warning');
-	
+	let warning = document.getElementById("screen-size-warning");
+
 	if (isSmallScreen && !warning) {
-		warning = document.createElement('div');
-		warning.id = 'screen-size-warning';
+		warning = document.createElement("div");
+		warning.id = "screen-size-warning";
 		warning.innerHTML = `
 			<div class="warning-content">
 				<h2>Screen Resolution Not Supported</h2>
