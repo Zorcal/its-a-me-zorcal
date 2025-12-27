@@ -16,6 +16,31 @@ document.addEventListener("DOMContentLoaded", () => {
 
 	// Track locally stored newline commands for later server sync
 	let pendingNewlines = 0;
+	
+	// Load any pending newlines from previous session
+	const storedNewlines = localStorage.getItem('pendingNewlines');
+	if (storedNewlines) {
+		pendingNewlines = parseInt(storedNewlines) || 0;
+		localStorage.removeItem('pendingNewlines');
+		
+		// Send stored newlines immediately if any exist
+		if (pendingNewlines > 0) {
+			const params = new URLSearchParams();
+			params.append("count", pendingNewlines);
+			fetch("/newline", {
+				method: "POST",
+				headers: {
+					"Content-Type": "application/x-www-form-urlencoded",
+				},
+				body: params,
+			}).finally(() => {
+				pendingNewlines = 0;
+				// Refresh the page to show the newlines
+				window.location.reload();
+			});
+			return; // Don't continue with normal page initialization
+		}
+	}
 
 	// Fetch command history from server
 	async function fetchCommandHistory() {
@@ -260,14 +285,11 @@ document.addEventListener("DOMContentLoaded", () => {
 		}
 	});
 
-	// Send pending newlines before page unload to preserve state
-	window.addEventListener("beforeunload", async () => {
+	// Store pending newlines before page unload
+	window.addEventListener("beforeunload", () => {
 		if (pendingNewlines > 0) {
-			// Use sendBeacon for reliable delivery during page unload
-			const params = new URLSearchParams();
-			params.append("count", pendingNewlines);
-			navigator.sendBeacon("/newline", params);
-			pendingNewlines = 0;
+			// Store in localStorage to handle on next page load
+			localStorage.setItem('pendingNewlines', pendingNewlines.toString());
 		}
 	});
 });
