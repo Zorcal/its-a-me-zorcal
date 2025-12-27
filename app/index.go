@@ -9,7 +9,6 @@ import (
 	"github.com/zorcal/its-a-me-zorcal/internal/termui"
 	"github.com/zorcal/its-a-me-zorcal/pkg/github"
 	"github.com/zorcal/its-a-me-zorcal/pkg/httprouter"
-	"github.com/zorcal/its-a-me-zorcal/pkg/session"
 )
 
 const welcomeBannerHTML = `<div class="welcome">
@@ -30,7 +29,7 @@ type IndexData struct {
 	CurrentPrompt string
 }
 
-func indexHandler(log *slog.Logger, sessionMgr *session.Manager[terminalSessionEntry], ghFetcher *cachedGitHubFetcher) httprouter.Handler {
+func indexHandler(log *slog.Logger, sessAdapter *sessionAdapter, ghFetcher *cachedGitHubFetcher) httprouter.Handler {
 	tmpl, err := template.ParseFS(templatesFS, "templates/base.html", "templates/index.html")
 	if err != nil {
 		return func(w http.ResponseWriter, r *http.Request) error {
@@ -38,11 +37,9 @@ func indexHandler(log *slog.Logger, sessionMgr *session.Manager[terminalSessionE
 		}
 	}
 
-	sessAdapter := newSessionAdapter(sessionMgr)
-
 	return func(w http.ResponseWriter, r *http.Request) error {
 		sessionID := getSessionID(r)
-		sess := sessionMgr.GetOrCreateSession(sessionID)
+		sess := sessAdapter.mgr.GetOrCreateSession(sessionID)
 
 		if sessionID == "" {
 			setSessionCookie(w, sess.ID())

@@ -23,6 +23,8 @@ func NewHandler(log *slog.Logger, appVersion string, disableStaticCache bool) (h
 	sessMgr := newSessionManager()
 	startSessionCleanupTicker(sessMgr)
 
+	sessAdapter := newSessionAdapter(sessMgr)
+
 	ghFetcher := newCachedGitHubFetcher("Zorcal", 24*time.Hour)
 
 	repos := ghFetcher.FetchRepositories(context.Background(), log)
@@ -35,16 +37,17 @@ func NewHandler(log *slog.Logger, appVersion string, disableStaticCache bool) (h
 
 	r := httprouter.New(
 		traceMiddleware(),
-		errorMiddleware(log, sessMgr),
+		errorMiddleware(log, sessAdapter),
 		loggingMiddleware(log),
 		panicRecovery(log),
 	)
 
 	r.SetNotFoundHandler(notFoundHandler(), htmlContentTypeMiddleware())
 	r.Handle("/static/", staticHandler(static, appVersion, disableStaticCache))
-	r.Handle("POST /command", commandHandler(sessMgr, tfs), htmxMiddleware(), htmlContentTypeMiddleware())
+	r.Handle("POST /command", commandHandler(sessAdapter, tfs), htmxMiddleware(), htmlContentTypeMiddleware())
+	r.Handle("POST /newline", newlineHandler(sessAdapter))
 	r.Handle("GET /history", historyHandler(sessMgr))
-	r.Handle("GET /{$}", indexHandler(log, sessMgr, ghFetcher), htmlContentTypeMiddleware())
+	r.Handle("GET /{$}", indexHandler(log, sessAdapter, ghFetcher), htmlContentTypeMiddleware())
 
 	return r, nil
 }

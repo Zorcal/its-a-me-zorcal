@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"html/template"
 	"net/http"
+	"strconv"
 	"strings"
 
 	"github.com/zorcal/its-a-me-zorcal/internal/termfs"
@@ -22,7 +23,7 @@ type cmdTmplData struct {
 	NextPrompt string
 }
 
-func commandHandler(sessMgr *session.Manager[terminalSessionEntry], tfs *termfs.FS) httprouter.Handler {
+func commandHandler(sessAdapter *sessionAdapter, tfs *termfs.FS) httprouter.Handler {
 	tmpl, err := template.ParseFS(templatesFS, "templates/command_output.html")
 	if err != nil {
 		return func(w http.ResponseWriter, r *http.Request) error {
@@ -30,15 +31,13 @@ func commandHandler(sessMgr *session.Manager[terminalSessionEntry], tfs *termfs.
 		}
 	}
 
-	sessAdapter := newSessionAdapter(sessMgr)
-
 	return func(w http.ResponseWriter, r *http.Request) error {
 		if err := r.ParseForm(); err != nil {
 			return wrapHTTPError(http.StatusBadRequest, "Bad form data", err)
 		}
 
 		sessionID := getSessionID(r)
-		sess := sessMgr.GetOrCreateSession(sessionID)
+		sess := sessAdapter.mgr.GetOrCreateSession(sessionID)
 
 		cmdLine := strings.TrimSpace(r.FormValue("command"))
 
@@ -56,8 +55,6 @@ func commandHandler(sessMgr *session.Manager[terminalSessionEntry], tfs *termfs.
 		}
 
 		switch cmd {
-		case "":
-			return runEmptyCommand(w, sess, tmpl, currPrompt)
 		case "clear":
 			runClearCommand(w, sess)
 			return nil
@@ -77,22 +74,6 @@ func commandHandler(sessMgr *session.Manager[terminalSessionEntry], tfs *termfs.
 			return runUnknownCommand(w, sess, tmpl, cmd, currPrompt)
 		}
 	}
-}
-
-func runEmptyCommand(w http.ResponseWriter, sess *session.Session[terminalSessionEntry], tmpl *template.Template, currPrompt string) error {
-	entry := newTerminalSessionEntry("", "", false)
-	entry.Prompt = currPrompt
-	sess.AddEntry(entry)
-
-	data := cmdTmplData{
-		Command:    "",
-		Output:     "",
-		Error:      false,
-		Prompt:     currPrompt,
-		NextPrompt: currPrompt,
-	}
-
-	return tmpl.Execute(w, data)
 }
 
 func runClearCommand(w http.ResponseWriter, sess *session.Session[terminalSessionEntry]) {
@@ -341,6 +322,38 @@ func runUnknownCommand(w http.ResponseWriter, sess *session.Session[terminalSess
 	}
 
 	return tmpl.Execute(w, data)
+}
+
+func newlineHandler(sessAdapter *sessionAdapter) httprouter.Handler {
+	return func(w http.ResponseWriter, r *http.Request) error {
+		if err := r.ParseForm(); err != nil {
+			return wrapHTTPError(http.StatusBadRequest, "Bad form data", err)
+		}
+
+		sessionID := getSessionID(r)
+		sess := sessAdapter.mgr.GetOrCreateSession(sessionID)
+
+		// Get current prompt for the session
+		currDir := sessAdapter.GetCurrentDir(sessionID)
+		currPrompt := termui.GeneratePrompt(currDir)
+
+		count := 1
+		if countStr := r.FormValue("count"); countStr != "" {
+			if parsedCount, err := strconv.Atoi(countStr); err == nil && parsedCount > 0 {
+				count = parsedCount
+			}
+		}
+
+		for range count {
+			entry := newTerminalSessionEntry("", "", false)
+			entry.Prompt = currPrompt
+			sess.AddEntry(entry)
+		}
+
+		w.WriteHeader(http.StatusNoContent)
+
+		return nil
+	}
 }
 
 func historyHandler(sessMgr *session.Manager[terminalSessionEntry]) httprouter.Handler {

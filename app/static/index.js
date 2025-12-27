@@ -14,6 +14,9 @@ document.addEventListener("DOMContentLoaded", () => {
 	// Text-based cursor management
 	let actualInputValue = ""; // The real command without the cursor
 
+	// Track locally stored newline commands for later server sync
+	let pendingNewlines = 0;
+
 	// Fetch command history from server
 	async function fetchCommandHistory() {
 		try {
@@ -112,6 +115,61 @@ document.addEventListener("DOMContentLoaded", () => {
 	// Initial display
 	updateDisplay();
 
+	// Prevent empty command submissions to save number of HTTP requests
+	const form = document.getElementById("command-form");
+	form.addEventListener(
+		"submit",
+		(e) => {
+			const command = actualInputValue.trim();
+			if (command === "") {
+				e.preventDefault();
+				e.stopPropagation(); // Prevent HTMX from processing this event
+
+				// Simulate empty command behavior locally without HTTP request
+				const historyDiv = document.getElementById("command-history");
+				const currentPrompt = document.getElementById("prompt").textContent;
+				const emptyEntry = document.createElement("div");
+				emptyEntry.innerHTML = `
+				<div class="command-prompt">${currentPrompt}</div>
+				<div class="command-output"></div>
+			`;
+				document.getElementById("command-output").appendChild(emptyEntry);
+
+				// Track this newline for later server sync
+				pendingNewlines++;
+
+				// Reset input
+				actualInputValue = "";
+				input.value = "";
+				input.setSelectionRange(0, 0);
+				updateDisplay();
+
+				// Scroll to bottom
+				historyDiv.scrollTop = historyDiv.scrollHeight;
+
+				// Focus back on input
+				input.focus();
+			} else {
+				// Send any pending newlines first as a separate request
+				if (pendingNewlines > 0) {
+					const newlineParams = new URLSearchParams();
+					newlineParams.append("count", pendingNewlines);
+					fetch("/newline", {
+						method: "POST",
+						headers: {
+							"Content-Type": "application/x-www-form-urlencoded",
+						},
+						body: newlineParams,
+					});
+					pendingNewlines = 0;
+				}
+				// Then let the normal command proceed
+				input.value = actualInputValue;
+			}
+		},
+		true,
+	); // Use capture phase to run before HTMX
+
 	// Handle keyboard shortcuts
 	document.addEventListener("keydown", (e) => {
 		// Only apply special handling when the input field is focused
@@ -162,12 +220,8 @@ document.addEventListener("DOMContentLoaded", () => {
 	// HTMX event handlers
 	window.handleCommandSubmit = () => {
 		const form = document.getElementById("command-form");
-		const submittedCommand = actualInputValue.trim();
 
-		// Ensure we submit the actual command without cursor
-		input.value = actualInputValue;
-
-		// Reset everything after submission
+		// Reset everything after submission (only called for successful server requests)
 		actualInputValue = "";
 		form.reset();
 		document.getElementById("command-input").focus();
@@ -178,9 +232,8 @@ document.addEventListener("DOMContentLoaded", () => {
 		// Update display to show cursor at beginning
 		updateDisplay();
 
-		if (submittedCommand !== "") {
-			fetchCommandHistory();
-		}
+		// Refresh command history (only called for non-empty commands that reached server)
+		fetchCommandHistory();
 	};
 
 	window.handleCommandError = (event) => {
@@ -196,6 +249,17 @@ document.addEventListener("DOMContentLoaded", () => {
 		const openUrl = xhr.getResponseHeader("X-Open-URL");
 		if (openUrl) {
 			window.open(openUrl, "_blank");
+		}
+	});
+
+	// Send pending newlines before page unload to preserve state
+	window.addEventListener("beforeunload", async () => {
+		if (pendingNewlines > 0) {
+			// Use sendBeacon for reliable delivery during page unload
+			const params = new URLSearchParams();
+			params.append("count", pendingNewlines);
+			navigator.sendBeacon("/newline", params);
+			pendingNewlines = 0;
 		}
 	});
 });

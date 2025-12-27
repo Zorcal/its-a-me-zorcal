@@ -14,7 +14,6 @@ import (
 	"github.com/google/uuid"
 	"github.com/zorcal/its-a-me-zorcal/internal/termui"
 	"github.com/zorcal/its-a-me-zorcal/pkg/httprouter"
-	"github.com/zorcal/its-a-me-zorcal/pkg/session"
 	"github.com/zorcal/its-a-me-zorcal/pkg/slogctx"
 	"github.com/zorcal/its-a-me-zorcal/pkg/tracectx"
 )
@@ -113,7 +112,7 @@ func panicRecovery(log *slog.Logger) httprouter.Middleware {
 	}
 }
 
-func errorMiddleware(log *slog.Logger, sessionMgr *session.Manager[terminalSessionEntry]) httprouter.Middleware {
+func errorMiddleware(log *slog.Logger, sessAdapter *sessionAdapter) httprouter.Middleware {
 	tmpl, err := template.ParseFS(templatesFS, "templates/base.html", "templates/error.html", "templates/command_output.html")
 	if err != nil {
 		log.ErrorContext(context.Background(), "Failed to parse template fs for error middleware", "error", err)
@@ -181,9 +180,8 @@ func errorMiddleware(log *slog.Logger, sessionMgr *session.Manager[terminalSessi
 			))
 
 			sessionID := getSessionID(r)
-			sess := sessionMgr.GetOrCreateSession(sessionID)
+			sess := sessAdapter.mgr.GetOrCreateSession(sessionID)
 
-			sessAdapter := newSessionAdapter(sessionMgr)
 			currPrompt := termui.GeneratePrompt(sessAdapter.GetCurrentDir(sessionID))
 
 			entry := newTerminalSessionEntry(command, output, true)
