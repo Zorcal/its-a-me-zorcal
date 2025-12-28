@@ -128,7 +128,11 @@ Notes:
 		NextPrompt: currPrompt,
 	}
 
-	return tmpl.Execute(w, data)
+	if err := tmpl.Execute(w, data); err != nil {
+		return fmt.Errorf("exec template: %w", err)
+	}
+
+	return nil
 }
 
 func runOpenCommand(w http.ResponseWriter, sess *session.Session[terminalSessionEntry], tmpl *template.Template, tfs *termfs.FS, sessAdapter *sessionAdapter, sessionID, cmdLine string, args []string, currPrompt string) error {
@@ -170,7 +174,11 @@ func runOpenCommand(w http.ResponseWriter, sess *session.Session[terminalSession
 		NextPrompt: currPrompt,
 	}
 
-	return tmpl.Execute(w, data)
+	if err := tmpl.Execute(w, data); err != nil {
+		return fmt.Errorf("exec template: %w", err)
+	}
+
+	return nil
 }
 
 func runCdCommand(w http.ResponseWriter, sess *session.Session[terminalSessionEntry], tmpl *template.Template, tfs *termfs.FS, sessAdapter *sessionAdapter, sessionID, cmdLine string, args []string, currPrompt string) error {
@@ -206,7 +214,11 @@ func runCdCommand(w http.ResponseWriter, sess *session.Session[terminalSessionEn
 		NextPrompt: termui.GeneratePrompt(sessAdapter.GetCurrentDir(sessionID)),
 	}
 
-	return tmpl.Execute(w, data)
+	if err := tmpl.Execute(w, data); err != nil {
+		return fmt.Errorf("exec template: %w", err)
+	}
+
+	return nil
 }
 
 func runLsCommand(w http.ResponseWriter, sess *session.Session[terminalSessionEntry], tmpl *template.Template, tfs *termfs.FS, sessAdapter *sessionAdapter, sessionID, cmdLine string, args []string, currPrompt string) error {
@@ -246,7 +258,11 @@ func runLsCommand(w http.ResponseWriter, sess *session.Session[terminalSessionEn
 		NextPrompt: currPrompt,
 	}
 
-	return tmpl.Execute(w, data)
+	if err := tmpl.Execute(w, data); err != nil {
+		return fmt.Errorf("exec template: %w", err)
+	}
+
+	return nil
 }
 
 func runPwdCommand(w http.ResponseWriter, sess *session.Session[terminalSessionEntry], tmpl *template.Template, sessAdapter *sessionAdapter, sessionID, currPrompt string) error {
@@ -275,7 +291,11 @@ func runPwdCommand(w http.ResponseWriter, sess *session.Session[terminalSessionE
 		NextPrompt: currPrompt,
 	}
 
-	return tmpl.Execute(w, data)
+	if err := tmpl.Execute(w, data); err != nil {
+		return fmt.Errorf("exec template: %w", err)
+	}
+
+	return nil
 }
 
 func runCatCommand(w http.ResponseWriter, sess *session.Session[terminalSessionEntry], tmpl *template.Template, tfs *termfs.FS, sessAdapter *sessionAdapter, sessionID, cmdLine string, args []string, currPrompt string) error {
@@ -315,7 +335,11 @@ func runCatCommand(w http.ResponseWriter, sess *session.Session[terminalSessionE
 		NextPrompt: currPrompt,
 	}
 
-	return tmpl.Execute(w, data)
+	if err := tmpl.Execute(w, data); err != nil {
+		return fmt.Errorf("exec template: %w", err)
+	}
+
+	return nil
 }
 
 func runUnknownCommand(w http.ResponseWriter, sess *session.Session[terminalSessionEntry], tmpl *template.Template, cmd, currPrompt string) error {
@@ -333,7 +357,11 @@ func runUnknownCommand(w http.ResponseWriter, sess *session.Session[terminalSess
 		NextPrompt: currPrompt,
 	}
 
-	return tmpl.Execute(w, data)
+	if err := tmpl.Execute(w, data); err != nil {
+		return fmt.Errorf("exec template: %w", err)
+	}
+
+	return nil
 }
 
 func newlineHandler(sessAdapter *sessionAdapter) httprouter.Handler {
@@ -372,7 +400,9 @@ func newlineHandler(sessAdapter *sessionAdapter) httprouter.Handler {
 		}
 
 		if isHTMXRequest(r) {
-			return tmpl.Execute(w, entries)
+			if err := tmpl.Execute(w, entries); err != nil {
+				return fmt.Errorf("exec template: %w", err)
+			}
 		}
 
 		w.WriteHeader(http.StatusNoContent)
