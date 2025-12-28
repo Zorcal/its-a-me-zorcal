@@ -383,26 +383,19 @@ func newlineHandler(sessAdapter *sessionAdapter) httprouter.Handler {
 		currDir := sessAdapter.GetCurrentDir(sessionID)
 		currPrompt := termui.GeneratePrompt(currDir)
 
-		count := 1
+		newlineCount := 1
 		if countStr := r.FormValue("count"); countStr != "" {
 			if parsedCount, err := strconv.Atoi(countStr); err == nil && parsedCount > 0 {
-				count = parsedCount
+				newlineCount = parsedCount
 			}
 		}
 
-		for range count {
+		data := make([]struct{ Prompt string }, newlineCount)
+		for i := range newlineCount {
 			entry := newTerminalSessionEntry("", "", false)
 			entry.Prompt = currPrompt
 			sess.AddEntry(entry)
-		}
 
-		if !isHTMXRequest(r) {
-			w.WriteHeader(http.StatusNoContent)
-			return nil
-		}
-
-		data := make([]struct{ Prompt string }, count)
-		for i := range data {
 			data[i].Prompt = currPrompt
 		}
 
