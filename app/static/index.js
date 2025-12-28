@@ -283,6 +283,19 @@ document.addEventListener("DOMContentLoaded", () => {
 
 		// Send stored newlines immediately if any exist
 		if (pendingNewlines > 0) {
+			// Pre-fill the UI with pending newlines to prevent flickering when the page is refreshed
+			const historyDiv = document.getElementById("command-history");
+			const currentPrompt = document.getElementById("prompt").textContent;
+			for (let i = 0; i < pendingNewlines; i++) {
+				const emptyEntry = document.createElement("div");
+				emptyEntry.innerHTML = `
+					<div class="command-prompt">${currentPrompt}</div>
+					<div class="command-output"></div>
+				`;
+				document.getElementById("command-output").appendChild(emptyEntry);
+			}
+			historyDiv.scrollTop = historyDiv.scrollHeight;
+
 			const params = new URLSearchParams();
 			params.append("count", pendingNewlines);
 			fetch("/newline", {
@@ -293,7 +306,7 @@ document.addEventListener("DOMContentLoaded", () => {
 				body: params,
 			}).finally(() => {
 				pendingNewlines = 0;
-				// Refresh the page to show the newlines
+				// Refresh the page to show the server state after sending newlines (UI should already match server state)
 				window.location.reload();
 			});
 		}
