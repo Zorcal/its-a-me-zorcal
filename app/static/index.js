@@ -275,40 +275,29 @@ document.addEventListener("DOMContentLoaded", () => {
 		}
 	});
 
-	// Handle any pending newlines from previous session (after all event listeners are set up)
+	// Handle any pending newlines from previous session.
 	const storedNewlines = localStorage.getItem("pendingNewlines");
 	if (storedNewlines) {
 		pendingNewlines = parseInt(storedNewlines) || 0;
 		localStorage.removeItem("pendingNewlines");
 
-		// Send stored newlines immediately if any exist
+		// Send stored newlines immediately if any exist.
 		if (pendingNewlines > 0) {
-			// Pre-fill the UI with pending newlines to prevent flickering when the page is refreshed
-			const historyDiv = document.getElementById("command-history");
-			const currentPrompt = document.getElementById("prompt").textContent;
-			for (let i = 0; i < pendingNewlines; i++) {
-				const emptyEntry = document.createElement("div");
-				emptyEntry.innerHTML = `
-					<div class="command-prompt">${currentPrompt}</div>
-					<div class="command-output"></div>
-				`;
-				document.getElementById("command-output").appendChild(emptyEntry);
-			}
-			historyDiv.scrollTop = historyDiv.scrollHeight;
+			htmx
+				.ajax("POST", "/newline", {
+					headers: {
+						"Content-Type": "application/x-www-form-urlencoded",
+					},
+					values: { count: pendingNewlines },
+					target: "#command-output",
+					swap: "beforeend",
+				})
+				.then(() => {
+					pendingNewlines = 0;
 
-			const params = new URLSearchParams();
-			params.append("count", pendingNewlines);
-			fetch("/newline", {
-				method: "POST",
-				headers: {
-					"Content-Type": "application/x-www-form-urlencoded",
-				},
-				body: params,
-			}).finally(() => {
-				pendingNewlines = 0;
-				// Refresh the page to show the server state after sending newlines (UI should already match server state)
-				window.location.reload();
-			});
+					const historyDiv = document.getElementById("command-history");
+					historyDiv.scrollTop = historyDiv.scrollHeight;
+				});
 		}
 	}
 });

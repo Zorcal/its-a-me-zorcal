@@ -337,6 +337,13 @@ func runUnknownCommand(w http.ResponseWriter, sess *session.Session[terminalSess
 }
 
 func newlineHandler(sessAdapter *sessionAdapter) httprouter.Handler {
+	tmpl, err := template.ParseFS(templatesFS, "templates/newline_entries.html")
+	if err != nil {
+		return func(w http.ResponseWriter, r *http.Request) error {
+			return fmt.Errorf("parse template fs for newline handler: %w", err)
+		}
+	}
+
 	return func(w http.ResponseWriter, r *http.Request) error {
 		if err := r.ParseForm(); err != nil {
 			return wrapHTTPError(http.StatusBadRequest, "Bad form data", err)
@@ -355,10 +362,17 @@ func newlineHandler(sessAdapter *sessionAdapter) httprouter.Handler {
 			}
 		}
 
+		var entries []terminalSessionEntry
 		for range count {
 			entry := newTerminalSessionEntry("", "", false)
 			entry.Prompt = currPrompt
 			sess.AddEntry(entry)
+
+			entries = append(entries, entry)
+		}
+
+		if isHTMXRequest(r) {
+			return tmpl.Execute(w, entries)
 		}
 
 		w.WriteHeader(http.StatusNoContent)
