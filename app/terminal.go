@@ -390,22 +390,25 @@ func newlineHandler(sessAdapter *sessionAdapter) httprouter.Handler {
 			}
 		}
 
-		var entries []terminalSessionEntry
 		for range count {
 			entry := newTerminalSessionEntry("", "", false)
 			entry.Prompt = currPrompt
 			sess.AddEntry(entry)
-
-			entries = append(entries, entry)
 		}
 
-		if isHTMXRequest(r) {
-			if err := tmpl.Execute(w, entries); err != nil {
-				return fmt.Errorf("exec template: %w", err)
-			}
+		if !isHTMXRequest(r) {
+			w.WriteHeader(http.StatusNoContent)
+			return nil
 		}
 
-		w.WriteHeader(http.StatusNoContent)
+		data := make([]struct{ Prompt string }, count)
+		for i := range data {
+			data[i].Prompt = currPrompt
+		}
+
+		if err := tmpl.Execute(w, data); err != nil {
+			return fmt.Errorf("exec template: %w", err)
+		}
 
 		return nil
 	}
