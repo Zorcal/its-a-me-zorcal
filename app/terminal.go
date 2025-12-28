@@ -416,8 +416,9 @@ func historyHandler(sessMgr *session.Manager[terminalSessionEntry]) httprouter.H
 
 		var commands []string
 		for _, entry := range history {
-			if strings.TrimSpace(entry.Command) != "" {
-				commands = append(commands, entry.Command)
+			cmd := strings.TrimSpace(entry.Command)
+			if cmd != "" && (len(commands) == 0 || commands[len(commands)-1] != cmd) {
+				commands = append(commands, cmd)
 			}
 		}
 
